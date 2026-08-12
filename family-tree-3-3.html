@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Tree</title>
+<style>
+  :root{
+    --bg:#faf7f2;
+    --card:#ffffff;
+    --ink:#2b2420;
+    --muted:#8a7f74;
+    --line:#d8cfc2;
+    --connector:#b6987a;
+    --accent:#7a5c3e;
+    --accent-soft:#efe4d6;
+    --gen1:#7a5c3e;
+    --gen2:#8f6d4a;
+    --gen3:#a68258;
+    --gen4:#bd9a70;
+    --danger:#a13d3d;
+  --married-in:#3d6a91;
+  --married-in-soft:#e4edf5;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Georgia','Iowan Old Style',serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    position:sticky; top:0; z-index:50;
+    background:var(--bg);
+    border-bottom:1px solid var(--line);
+    padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:10px;
+  }
+  h1{
+    font-size:22px; margin:0; font-weight:400; letter-spacing:0.5px;
+  }
+  h1 span{color:var(--accent); font-style:italic;}
+  .controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  input[type=text]{
+    font-family:inherit; padding:8px 12px; border:1px solid var(--line);
+    border-radius:6px; background:#fff; font-size:14px; min-width:160px;
+  }
+  button{
+    font-family:inherit; cursor:pointer; border:1px solid var(--line);
+    background:#fff; color:var(--ink); padding:8px 14px; border-radius:6px;
+    font-size:13px; transition:all .15s;
+  }
+  button:hover{background:var(--accent-soft); border-color:var(--accent);}
+  button.primary{background:var(--accent); color:#fff; border-color:var(--accent);}
+  button.primary:hover{opacity:0.9;}
+  button.danger{color:var(--danger); border-color:var(--danger);}
+  .edit-badge{
+    font-size:11px; padding:4px 10px; border-radius:20px; background:var(--accent-soft);
+    color:var(--accent); border:1px solid var(--accent);
+  }
+  #tree-wrap{
+    padding:40px 20px 100px; overflow:auto;
+  }
+  .zoom-controls{
+    display:flex; align-items:center; gap:2px; border:1px solid var(--line);
+    border-radius:6px; background:#fff; overflow:hidden;
+  }
+  .zoom-controls button{
+    border:none; border-radius:0; padding:8px 12px; font-size:15px; line-height:1;
+  }
+  .zoom-controls button:hover{background:var(--accent-soft);}
+  #zoom-level{
+    font-size:12px; color:var(--muted); min-width:44px; text-align:center;
+    cursor:pointer; user-select:none; padding:8px 4px;
+  }
+  #zoom-level:hover{color:var(--accent);}
+  #tree{
+    display:flex; justify-content:center; min-width:max-content; position:relative;
+  }
+  #connector-svg{
+    position:absolute; top:0; left:0; pointer-events:none; z-index:0; overflow:visible;
+  }
+  .conn-line{ stroke:var(--connector); stroke-width:2; }
+  ul.tree{
+    padding-top:32px; position:relative; z-index:1;
+    display:flex;
+  }
+  ul.tree, ul.tree ul{
+    list-style:none; margin:0; padding-left:0;
+  }
+  ul.tree ul{
+    padding-top:32px;
+  }
+  li.node{
+    position:relative; padding:0 14px; display:flex; flex-direction:column; align-items:center;
+  }
+  li.node > .couple-wrap{
+    position:relative;
+  }
+  li.node > .children-row{
+    display:flex; padding-top:32px; position:relative;
+  }
+  .children-row > li.node{
+    padding-top:0;
+  }
+  .couple{
+    display:flex; align-items:center; gap:0; background:var(--card);
+    border:1px solid var(--line); border-radius:10px; padding:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04); position:relative;
+  }
+  .person{
+    display:flex; flex-direction:column; align-items:center; width:150px;
+    padding:6px 10px; border-radius:8px; cursor:pointer; text-align:center;
+    position:relative;
+  }
+  .person:hover{background:var(--accent-soft);}
+  .person.dim{opacity:0.55;}
+  .marriage-badge{
+    position:absolute; top:-2px; right:2px; width:17px; height:17px; border-radius:50%;
+    background:var(--accent); color:#fff; font-size:10px; font-weight:bold;
+    display:flex; align-items:center; justify-content:center; border:2px solid var(--bg);
+    line-height:1;
+  }
+  .avatar{
+    width:56px; height:56px; border-radius:50%; background:var(--accent-soft);
+    border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center;
+    overflow:hidden; margin-bottom:6px; color:var(--accent); font-size:20px; flex-shrink:0;
+  }
+  .avatar img{width:100%; height:100%; object-fit:cover;}
+  .p-nick{font-weight:bold; font-size:13.5px; line-height:1.25; white-space:nowrap;}
+  .p-row2{font-weight:600; font-size:12px; line-height:1.2; color:var(--ink); white-space:nowrap; margin-top:1px;}
+  .p-name{font-size:11px; color:var(--muted); font-style:italic; line-height:1.2; white-space:nowrap; margin-top:1px;}
+  .p-dates{font-size:10px; color:var(--muted); margin-top:2px;}
+  .pm-tag{font-size:9px; color:var(--danger); margin-top:2px;}
+  .spouse-link{color:var(--muted); font-size:16px; padding:0 4px; position:relative; display:inline-flex; align-items:center; justify-content:center;}
+  .spouse-link.divorced::after{
+    content:''; position:absolute; left:50%; top:50%; width:22px; height:2px;
+    background:var(--danger); transform:translate(-50%,-50%) rotate(-35deg);
+  }
+  .toggle-btn{
+    position:absolute; bottom:-10px; left:50%; transform:translateX(-50%);
+    width:20px; height:20px; border-radius:50%; background:var(--accent); color:#fff;
+    border:2px solid var(--bg); font-size:12px; display:flex; align-items:center;
+    justify-content:center; cursor:pointer; z-index:5; line-height:1;
+  }
+
+  /* Modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(43,36,32,0.5); display:flex;
+    align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  .modal{
+    background:#fff; border-radius:12px; padding:26px; width:100%; max-width:480px;
+    max-height:88vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,0.25);
+  }
+  .modal h2{margin:0 0 4px; font-weight:400; font-size:20px;}
+  .modal .sub{color:var(--muted); font-size:12px; margin-bottom:18px;}
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;
+    color:var(--muted); margin-bottom:5px;
+  }
+  .field input[type=text], .field input[type=date]{
+    width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px;
+    font-family:inherit; font-size:14px;
+  }
+  .field .readonly-val{
+    padding:9px 0; font-size:14px; color:var(--ink);
+  }
+  .field .readonly-val.empty{color:var(--muted); font-style:italic;}
+  .modal-photo{
+    width:220px; height:220px; border-radius:50%; margin:0 auto 16px; display:flex;
+    align-items:center; justify-content:center; background:var(--accent-soft);
+    border:2px solid var(--line); overflow:hidden; font-size:64px; color:var(--accent);
+    position:relative;
+  }
+  .modal-photo.has-photo{cursor:zoom-in;}
+  .modal-photo img{width:100%; height:100%; object-fit:cover;}
+
+  /* Photo lightbox — full-size view for actually matching a face to a name */
+  .photo-lightbox{
+    position:fixed; inset:0; background:rgba(20,16,14,0.88); z-index:200;
+    display:flex; align-items:center; justify-content:center; padding:30px;
+    cursor:zoom-out;
+  }
+  .photo-lightbox img{
+    max-width:min(90vw, 700px); max-height:85vh; border-radius:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5); object-fit:contain;
+  }
+  .photo-lightbox .lightbox-close{
+    position:absolute; top:20px; right:24px; background:none; border:none;
+    color:#fff; font-size:26px; cursor:pointer; padding:6px; line-height:1;
+  }
+  .photo-lightbox .lightbox-name{
+    position:absolute; bottom:26px; left:0; right:0; text-align:center;
+    color:#fff; font-family:'Georgia','Iowan Old Style',serif; font-size:18px;
+  }
+  .modal-actions{display:flex; gap:8px; margin-top:20px; flex-wrap:wrap;}
+  .family-actions{
+    margin-top:18px; padding-top:16px; border-top:1px dashed var(--line);
+  }
+  .fa-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted);
+    margin-bottom:8px;
+  }
+  .fa-buttons{display:flex; gap:8px; flex-wrap:wrap;}
+  .fa-buttons button{font-size:12px; padding:7px 12px;}
+  .fa-buttons button:disabled{
+    opacity:0.4; cursor:not-allowed; background:#fff; border-color:var(--line); color:var(--muted);
+  }
+  .fa-buttons button:disabled:hover{background:#fff;}
+  .close-x{
+    position:absolute; top:16px; right:16px; background:none; border:none; font-size:18px;
+    color:var(--muted); cursor:pointer; padding:4px;
+  }
+  .pin-row{display:flex; gap:8px; margin-top:10px;}
+  #pin-modal .modal{max-width:300px; text-align:center;}
+  .file-btn{display:block; margin:0 auto 14px; font-size:12px;}
+  .legend{
+    font-size:11px; color:var(--muted); text-align:center; padding-bottom:10px;
+  }
+  .loading{padding:60px; text-align:center; color:var(--muted);}
+  .couple-blue .couple{border-color:var(--married-in); background:var(--married-in-soft);}
+  .couple-blue .avatar{border-color:var(--married-in); background:#dbe6f0; color:var(--married-in);}
+  .couple-blue .spouse-link{color:var(--married-in);}
+  .couple-blue .spouse-link.divorced::after{background:var(--danger);}
+  .couple-blue .person:hover{background:#d5e2ee;}
+  .married-in-note{font-size:10px; color:var(--married-in); text-align:center; margin-top:2px;}
+  ::-webkit-scrollbar{height:10px; width:10px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:5px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The <span>Family</span> Tree</h1>
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search a name or nickname...">
+    <div class="zoom-controls">
+      <button id="zoom-out" type="button" title="Zoom out">−</button>
+      <span id="zoom-level" title="Reset zoom">100%</span>
+      <button id="zoom-in" type="button" title="Zoom in">+</button>
+    </div>
+    <span id="edit-status" class="edit-badge">Viewing</span>
+    <button id="edit-toggle">Enable Editing</button>
+    <button id="backup-btn">Backup Data</button>
+    <button id="import-btn">Import Backup</button>
+    <input type="file" id="import-file-input" accept="application/json" style="display:none;">
+  </div>
+</header>
+
+<div id="tree-wrap">
+  <div id="tree" class="loading">Loading tree…</div>
+</div>
+<div class="legend">Click any person to view or edit their details. Dashed / blank fields mean the info isn't known yet.</div>
+
+<script>
+/* ---------- DATA ---------- */
+// Each person: id, nickname, realName, middleName, lastName, dob, dod, deceased(pm), photoKey, spouseId, parentId, husbandLeftOut
+const seedPeople = [
+  {id:'p1', nickname:'Apa', realName:'', note:''},
+  {id:'p2', nickname:'Baredada', realName:'', deceased:true, spouseId:'p1'},
+
+  {id:'p3', nickname:'Muni', realName:'Nafees', parentId:'p1'},
+  {id:'p4', nickname:'Maqbool', realName:'', deceased:true, spouseId:'p3'},
+  {id:'p5', nickname:'Baboo', realName:'Mumtaz', parentId:'p1'},
+  {id:'p5s', nickname:'', realName:'', spouseId:'p5', note:'Spouse unknown'},
+  {id:'p6', nickname:'Qutchi', realName:'', parentId:'p1'},
+  {id:'p7', nickname:'Mumtaz', realName:'', deceased:true, spouseId:'p6'},
+  {id:'p8', nickname:'', realName:'Muna', parentId:'p1'},
+  {id:'p9', nickname:'Ilyas', realName:'', spouseId:'p8'},
+  {id:'p10', nickname:'Nanu', realName:'', parentId:'p1'},
+  {id:'p130', nickname:'', realName:'Tahira', deceased:true, spouseId:'p10', marriageOrder:1, divorced:true},
+  {id:'p11', nickname:'Farha', realName:'', spouseId:'p10', marriageOrder:2},
+  {id:'p12', nickname:'Choti Muna', realName:'', parentId:'p1'},
+  {id:'p13', nickname:'', realName:'Ashraf', deceased:true, spouseId:'p12', parentId:'p115'},
+
+  // Ashraf's own birth family (Choti Muna's husband's side)
+{id:'p115', nickname:'', realName:'', deceased:true, note:"Ashraf's parent, unnamed"},
+{id:'p116', nickname:'', realName:'', deceased:true, spouseId:'p115', note:"Ashraf's parent, unnamed"},
+  {id:'p117', nickname:'Baba', realName:'', deceased:true, parentId:'p115'},
+  {id:'p118', nickname:'', realName:'', spouseId:'p117', note:'Spouse unknown'},
+  {id:'p119', nickname:'', realName:'Irfan', parentId:'p117'},
+  {id:'p120', nickname:'', realName:'Sanam', spouseId:'p119'},
+  {id:'p121', nickname:'', realName:'Zain', parentId:'p119'},
+  {id:'p122', nickname:'', realName:'Sara', parentId:'p119'},
+  {id:'p123', nickname:'Noojie', realName:'Nuzat', parentId:'p117'},
+  {id:'p124', nickname:'Aslum', realName:'Abdul Azeem Satar', spouseId:'p123'},
+  {id:'p125', nickname:'', realName:'Akrum', parentId:'p123'},
+  {id:'p126', nickname:'', realName:'Sabuhi', parentId:'p123'},
+  {id:'p127', nickname:'', realName:'Ammar', spouseId:'p126'},
+  {id:'p128', nickname:'', realName:'Ayah', parentId:'p126'},
+  {id:'p129', nickname:'', realName:'Hawwah', parentId:'p126'},
+  {id:'p14', nickname:'Goru', realName:'', parentId:'p1'},
+  {id:'p15', nickname:'Shaheen', realName:'', spouseId:'p14'},
+  {id:'p16', nickname:'Raju', realName:'', parentId:'p1'},
+  {id:'p17', nickname:'Salma', realName:'', spouseId:'p16'},
+
+  // Nafees/Maqbool line
+  {id:'p18', nickname:'', realName:'Siddiq', parentId:'p3'},
+  {id:'p19', nickname:'', realName:'Zehra', spouseId:'p18'},
+  {id:'p20', nickname:'', realName:'Zaid', parentId:'p18'},
+  {id:'p21', nickname:'', realName:'Hiba', parentId:'p18'},
+  {id:'p22', nickname:'', realName:'Ashraf', parentId:'p3'},
+  {id:'p23', nickname:'', realName:'Madiha', spouseId:'p22'},
+  {id:'p24', nickname:'', realName:'Hamza', parentId:'p22'},
+  {id:'p25', nickname:'', realName:'Hazim', parentId:'p22'},
+  {id:'p26', nickname:'', realName:'Iman', parentId:'p22'},
+
+  // Mumtaz/Baboo line
+  {id:'p27', nickname:'', realName:'', parentId:'p5', note:'Name unknown'},
+  {id:'p27s', nickname:'', realName:'', spouseId:'p27', note:'Spouse unknown'},
+  {id:'p28', nickname:'', realName:'', parentId:'p27'},
+  {id:'p29', nickname:'', realName:'', parentId:'p27'},
+  {id:'p30', nickname:'', realName:'', parentId:'p27'},
+  {id:'p31', nickname:'', realName:'', parentId:'p27'},
+  {id:'p32', nickname:'', realName:'', parentId:'p5', note:'Name unknown'},
+  {id:'p32s', nickname:'', realName:'', spouseId:'p32', note:'Spouse unknown'},
+  {id:'p33', nickname:'', realName:'', parentId:'p32'},
+  {id:'p34', nickname:'', realName:'', parentId:'p32'},
+  {id:'p35', nickname:'', realName:'', parentId:'p32'},
+  {id:'p36', nickname:'', realName:'', parentId:'p32'},
+  {id:'p37', nickname:'Babloo', realName:'', parentId:'p5'},
+  {id:'p38', nickname:'', realName:'Asma', spouseId:'p37'},
+  {id:'p39', nickname:'', realName:'Hannah', parentId:'p37'},
+  {id:'p40', nickname:'', realName:'Sana', parentId:'p37'},
+  {id:'p40h', nickname:'', realName:'Fauzan', spouseId:'p40'},
+  {id:'p41', nickname:'', realName:'Saamiyah', parentId:'p37'},
+  {id:'p42', nickname:'', realName:'Ali', parentId:'p37'},
+
+  // Qutchi/Mumtaz line
+  {id:'p43', nickname:'Choti Mamu', realName:'', parentId:'p6'},
+  {id:'p44', nickname:'', realName:'Almas', spouseId:'p43'},
+  {id:'p45', nickname:'', realName:'Emaad', parentId:'p43'},
+  {id:'p46', nickname:'', realName:'Shireen', parentId:'p43'},
+  {id:'p47', nickname:'', realName:'Salman', spouseId:'p46'},
+  {id:'p48', nickname:'Choti Khala', realName:'', parentId:'p6'},
+  {id:'p49', nickname:'', realName:'Liakhad', spouseId:'p48'},
+  {id:'p50', nickname:'', realName:'Saad', parentId:'p48'},
+  {id:'p51', nickname:'', realName:'Safa', parentId:'p48'},
+  {id:'p51s', nickname:'', realName:'', spouseId:'p51', note:'Spouse unknown'},
+  {id:'p52', nickname:'', realName:'Safa', note:'Separate person, same name', spouseId:'p50'},
+  {id:'p53', nickname:'', realName:'Sabrina', parentId:'p50'},
+  {id:'p54', nickname:'', realName:'Sara', parentId:'p6'},
+  {id:'p55', nickname:'', realName:'Saleem', deceased:true, spouseId:'p54'},
+  {id:'p56', nickname:'', realName:'Aman', parentId:'p54'},
+  {id:'p57', nickname:'', realName:'Faiz', parentId:'p54'},
+
+  // Muna dadi/Ilyas line
+  {id:'p58', nickname:'', realName:'Fatima', parentId:'p8', note:'Husband not tracked'},
+  {id:'p59', nickname:'', realName:'Rayyan', parentId:'p58'},
+  {id:'p60', nickname:'', realName:'Nuha', parentId:'p58'},
+  {id:'p61', nickname:'Al', realName:'Ali', parentId:'p8'},
+  {id:'p62', nickname:'', realName:'Asma', spouseId:'p61'},
+  {id:'p63', nickname:'', realName:'Aleena', parentId:'p61'},
+  {id:'p64', nickname:'', realName:'Alisha', parentId:'p61'},
+  {id:'p65', nickname:'', realName:'Anam', parentId:'p61'},
+  {id:'p66', nickname:'', realName:'Ahmed', parentId:'p61'},
+  {id:'p67', nickname:'', realName:'Rukshanda', parentId:'p8', note:'Husband not tracked'},
+  {id:'p68', nickname:'', realName:'Taha', parentId:'p67'},
+  {id:'p69', nickname:'', realName:'Amara', parentId:'p67'},
+
+  // Nanu/Farha line
+  {id:'p70', nickname:'', realName:'Mudasir', parentId:'p10', otherParentId:'p130'},
+  {id:'p71', nickname:'', realName:'Amina', parentId:'p10', otherParentId:'p130'},
+  {id:'p71h', nickname:'', realName:'Boris', spouseId:'p71'},
+  {id:'p71c1', nickname:'', realName:'Aleena', parentId:'p71'},
+  {id:'p71c2', nickname:'', realName:'Ezra', parentId:'p71'},
+  {id:'p72', nickname:'', realName:'Sierra', parentId:'p10', otherParentId:'p11'},
+
+  // Choti Muna/Ashraf line
+  {id:'p73', nickname:'', realName:'Sumairah', parentId:'p12'},
+  {id:'p74', nickname:'', realName:'Ebad', spouseId:'p73'},
+  {id:'p75', nickname:'', realName:'Ibrahim', parentId:'p73'},
+  {id:'p76', nickname:'', realName:'Zehra', parentId:'p73'},
+  {id:'p77', nickname:'', realName:'Hannah', parentId:'p73'},
+  {id:'p78', nickname:'', realName:'Madiha', parentId:'p12'},
+  {id:'p79', nickname:'', realName:'Ashraf', spouseId:'p78'},
+  {id:'p80', nickname:'', realName:'Hamza', parentId:'p78'},
+  {id:'p81', nickname:'', realName:'Hazim', parentId:'p78'},
+  {id:'p82', nickname:'', realName:'Iman', parentId:'p78'},
+  {id:'p83', nickname:'Amu', realName:'Shareef', parentId:'p12'},
+  {id:'p84', nickname:'', realName:'Nabila', spouseId:'p83'},
+  {id:'p85', nickname:'', realName:'Yaseen', parentId:'p83'},
+  {id:'p86', nickname:'', realName:'Inayah', parentId:'p83'},
+
+  // Goru/Shaheen line
+  {id:'p87', nickname:'', realName:'Amer', parentId:'p14'},
+  {id:'p88', nickname:'', realName:'Najma', spouseId:'p87', note:"Sisters with Asma, Ali's wife"},
+  {id:'p89', nickname:'', realName:'Aiza', parentId:'p87'},
+  {id:'p90', nickname:'', realName:'Umair', parentId:'p14'},
+  {id:'p91', nickname:'', realName:'Sumairah', spouseId:'p90'},
+  {id:'p92', nickname:'', realName:'Easa', parentId:'p90'},
+  {id:'p93', nickname:'', realName:'Noah', parentId:'p90'},
+  {id:'p94', nickname:'', realName:'Zohair', parentId:'p14'},
+  {id:'p95', nickname:'', realName:'Zehra', spouseId:'p94'},
+  {id:'p96', nickname:'', realName:'Daniya', parentId:'p94'},
+  {id:'p97', nickname:'', realName:'Ameera', parentId:'p94'},
+  {id:'p98', nickname:'', realName:'Zayna', parentId:'p94'},
+
+  // Raju/Salma line
+  {id:'p99', nickname:'', realName:'Fariha', parentId:'p16'},
+  {id:'p100', nickname:'Emaad', realName:'', spouseId:'p99'},
+  {id:'p101', nickname:'', realName:'Zayaan', parentId:'p99'},
+  {id:'p102', nickname:'Papu', realName:'', parentId:'p16'},
+  {id:'p103', nickname:'', realName:'Faisul', spouseId:'p102'},
+  {id:'p104', nickname:'', realName:'Ayaan', parentId:'p102'},
+  {id:'p105', nickname:'', realName:'Zubair', parentId:'p102'},
+  {id:'p106', nickname:'', realName:'Ismael', parentId:'p102'},
+  {id:'p107', nickname:'', realName:'Mobin', parentId:'p16'},
+  {id:'p108', nickname:'', realName:'Ujala', spouseId:'p107'},
+  {id:'p109', nickname:'', realName:'Jibreel', parentId:'p107'},
+  {id:'p110', nickname:'', realName:'Zakariya', parentId:'p107'},
+  {id:'p111', nickname:'', realName:'Zeba', parentId:'p16'},
+  {id:'p112', nickname:'', realName:'Zeshuan', spouseId:'p111'},
+  {id:'p113', nickname:'', realName:'Jannah', parentId:'p111'},
+  {id:'p114', nickname:'', realName:'Nile', parentId:'p111'},
+];
+
+// normalize fields
+seedPeople.forEach(p=>{
+  p.middleName = p.middleName || '';
+  p.lastName = p.lastName || '';
+  p.dob = p.dob || '';
+  p.dod = p.dod || '';
+  p.deceased = !!p.deceased;
+  p.note = p.note || '';
+  p.gender = p.gender || '';
+  p.occupation = p.occupation || '';
+  p.maidenName = p.maidenName || '';
+  p.photoKey = 'photo:' + p.id;
+  p.divorced = !!p.divorced;
+});
+
+const EDIT_PIN = '1225'; // change this to whatever you like by editing this line
+
+let people = {};
+seedPeople.forEach(p=>people[p.id]=p);
+let editMode = false;
+let photoCache = {}; // id -> dataURL
+
+/* ---------- STORAGE ----------
+   This app can run two ways:
+   1) Inside Claude — uses the built-in window.storage automatically. No setup needed.
+   2) On your own hosting (Netlify, etc.) — paste your Supabase project's URL and
+      anon key into SUPABASE_URL / SUPABASE_ANON_KEY below. Once both are filled
+      in, the app automatically saves to Supabase instead — same buttons, same
+      behavior, just a different place the data lives.
+   See the setup instructions provided alongside this file for the exact steps
+   and the one SQL snippet to run in Supabase before pasting in your keys.
+*/
+const SUPABASE_URL = 'https://oqlvqtbzdhqifzlgaatj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_8QLhL-K63l1SuPREUWlzqg_3aAZDczo';
+const useSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+function supabaseHeaders(extra){
+  return Object.assign({
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+  }, extra || {});
+}
+
+// Generic key/value get — works against Supabase if configured, otherwise window.storage
+async function kvGet(key){
+  if(useSupabase){
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/kv_store?key=eq.${encodeURIComponent(key)}&select=value`, {
+      headers: supabaseHeaders()
+    });
+    if(!res.ok) throw new Error('Supabase read failed (' + res.status + ')');
+    const rows = await res.json();
+    return rows.length ? rows[0].value : null;
+  }
+  const r = await window.storage.get(key, true);
+  return r ? r.value : null;
+}
+
+// Generic key/value set (upsert)
+async function kvSet(key, value){
+  if(useSupabase){
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/kv_store`, {
+      method: 'POST',
+      headers: supabaseHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates'
+      }),
+      body: JSON.stringify({ key, value })
+    });
+    if(!res.ok) throw new Error('Supabase write failed (' + res.status + ')');
+    return;
+  }
+  await window.storage.set(key, value, true);
+}
+
+// List all keys starting with a prefix (used by the backup export)
+async function kvListKeys(prefix){
+  if(useSupabase){
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/kv_store?key=like.${encodeURIComponent(prefix + '%')}&select=key`, {
+      headers: supabaseHeaders()
+    });
+    if(!res.ok) throw new Error('Supabase list failed (' + res.status + ')');
+    const rows = await res.json();
+    return rows.map(r => r.key);
+  }
+  const r = await window.storage.list(prefix, true);
+  return (r && r.keys) ? r.keys : [];
+}
+
+function normalizePerson(p){
+  p.middleName = p.middleName || '';
+  p.lastName = p.lastName || '';
+  p.dob = p.dob || '';
+  p.dod = p.dod || '';
+  p.deceased = !!p.deceased;
+  p.note = p.note || '';
+  p.gender = p.gender || '';
+  p.occupation = p.occupation || '';
+  p.maidenName = p.maidenName || '';
+  p.photoKey = p.photoKey || ('photo:' + p.id);
+  p.divorced = !!p.divorced;
+  return p;
+}
+
+async function loadData(){
+  try{
+    const value = await kvGet('family-tree-people');
+    if(value){
+      const saved = JSON.parse(value);
+      people = saved;
+    }
+  }catch(e){ console.error('load failed', e); }
+  Object.values(people).forEach(normalizePerson);
+}
+
+async function saveAllData(){
+  try{
+    await kvSet('family-tree-people', JSON.stringify(people));
+  }catch(e){
+    console.error('save failed', e);
+    alert('Could not save changes — check your connection or storage setup. See console for details.');
+  }
+}
+
+async function loadPhoto(id){
+  if(photoCache[id]!==undefined) return photoCache[id];
+  try{
+    photoCache[id] = await kvGet('photo:'+id);
+  }catch(e){ photoCache[id] = null; }
+  return photoCache[id];
+}
+
+async function savePhoto(id, dataUrl){
+  try{
+    await kvSet('photo:'+id, dataUrl);
+    photoCache[id] = dataUrl;
+  }catch(e){
+    console.error('photo save failed', e);
+    alert('Could not save this photo — check your connection or storage setup.');
+  }
+}
+
+/* ---------- TREE BUILD ----------
+   Model: a person can carry a parentId (their own blood parent — defines
+   their generation) AND/OR a spouseId (they married into another person's
+   spot, same generation as that person). A person who has BOTH is a
+   "married-in-with-known-birth-family" case (e.g. Choti Muna's husband
+   Ashraf, whose own parents/siblings — p115 through p129 — are also in the
+   data): rather than rendering that birth family a second time as an
+   unrelated tree, it is auto-detected and grafted in directly ABOVE the
+   couple's own position, one generation up, right next to them — never as
+   a far-off floating box. It's drawn in blue throughout, since none of it
+   is blood-descended from the tree's anchor (Apa/Baredada). This applies
+   at ANY depth: a graft can itself contain further grafts (e.g. one of
+   Ashraf's siblings marries someone with their own known birth family),
+   and once a branch is blue, every descendant in it stays blue arbitrarily
+   deep — the color always propagates all the way down, never resets partway.
+
+   Connectors are always drawn parent-row -> children-row only. Two people
+   who are both children of the same parents (e.g. Ashraf and his brother
+   Baba, both children of p115/p116) are NEVER connected to each other with
+   a line — each is connected independently, upward, to their own parents.
+   Blue connector lines are allowed to visually cross or run near other
+   lines elsewhere in the tree; that's expected and fine, no special
+   avoidance is needed.
+
+   Every connector targets the actual blood-line person's box specifically
+   (tracked via a `data-blood="1"` marker on the correct person inside a
+   couple), never just whichever box happens to be positioned first/left —
+   this matters because couples can be reordered visually (e.g. a divorced
+   spouse shown on the left) without changing who the connector should
+   actually touch.
+
+   Nothing here is hardcoded to specific person ids — the whole mechanism
+   (roots, grafts, blood-anchors) is fully generic, so the tree can be
+   extended in any direction at any time: add parents/grandparents above
+   Apa or Baredada (via "+ Add Parent" on their own person record) to grow
+   the tree upward indefinitely, or add children/spouses anywhere to grow
+   it sideways and downward — the same rules apply at every generation.
+*/
+
+// Raw parent->child lookup, no exclusions.
+function getChildrenRaw(id){
+  return Object.values(people).filter(p=>p.parentId===id);
+}
+// Blood-line children shown directly under a person: excludes anyone who
+// ALSO has a spouseId, since that means they married into a different spot
+// in the tree and will be rendered there instead (with their birth family
+// grafted in), not as a plain child box under their own birth parent.
+function getChildren(id){
+  return getChildrenRaw(id).filter(p=>!p.spouseId);
+}
+// Returns ALL spouses of a person, in marriage order (supports remarriage/multiple marriages)
+function getSpouses(id){
+  return Object.values(people)
+    .filter(x => x.spouseId === id)
+    .sort((a,b) => (a.marriageOrder||1) - (b.marriageOrder||1));
+}
+function getSpouse(id){
+  const spouses = getSpouses(id);
+  return spouses.length ? spouses[0] : null;
+}
+// The set of person-ids that are a married-in spouse's birth parent — these
+// get grafted in beside the couple instead of appearing as their own root.
+function graftedParentIds(){
+  const set = new Set();
+  Object.values(people).forEach(p=>{
+    if(p.spouseId && p.parentId) set.add(p.parentId);
+  });
+  return set;
+}
+// roots = people with no parentId and not themselves a spouse-only entry.
+// A married-in spouse's own birth family (e.g. p115/p116) has no parentId
+// either, so it naturally becomes its OWN root-level tree here, rendered
+// side-by-side with every other root at the same generation — instead of
+// being excluded and nested underneath the couple it connects to.
+// Fully generic: adding a parent to today's root (e.g. Apa) simply makes
+// that new person the root instead — no code changes ever needed to grow
+// the tree upward.
+function getRoots(){
+  return Object.values(people).filter(p=>!p.parentId && !p.spouseId);
+}
+// For a couple, new children must attach to whichever partner is the "blood line"
+// member (the one connected upward to the tree), not the one who married in.
+function getBloodParentId(personId){
+  const p = people[personId];
+  if(p.spouseId && people[p.spouseId]) return p.spouseId;
+  return personId;
+}
+// When adding a child, figures out which specific marriage (if the blood parent
+// has more than one) the new child belongs to, so multi-marriage families stay
+// correctly grouped. Returns the spouse-record id that represents that marriage
+// (used to set otherParentId AND to inherit that marriage's number).
+function getOtherParentId(personId){
+  const p = people[personId];
+  if(p.spouseId) return personId; // viewing the spouse directly — unambiguous
+  const spouses = getSpouses(personId);
+  if(spouses.length === 1) return spouses[0].id;
+  if(spouses.length > 1) return spouses[spouses.length - 1].id; // default: most recent marriage
+  return undefined;
+}
+// A small numbered badge shown only when relevant: on a spouse who is part of a
+// labeled multi-marriage, or on a child whose parent had multiple marriages.
+function marriageBadgeFor(p){
+  const spouses = getSpouses(p.id);
+
+  // Only show marriage numbers when there is more than one spouse.
+  if(spouses.length > 1 && p.marriageOrder){
+    return p.marriageOrder;
+  }
+
+  // If this person is the spouse of someone else,
+  // only show numbering if that person has multiple spouses.
+  if(p.spouseId){
+    const partnerSpouses = getSpouses(p.spouseId);
+    if(partnerSpouses.length > 1 && p.marriageOrder){
+      return p.marriageOrder;
+    }
+  }
+
+  // If this person is a CHILD whose parent had multiple marriages, inherit
+  // that marriage's number via otherParentId (the specific spouse record
+  // this child belongs to).
+  if(p.parentId && p.otherParentId && people[p.otherParentId]){
+    const bloodParentSpouses = getSpouses(p.parentId);
+    if(bloodParentSpouses.length > 1){
+      const marriageRec = people[p.otherParentId];
+      if(marriageRec.marriageOrder) return marriageRec.marriageOrder;
+    }
+  }
+
+  return null;
+}
+function newPersonId(){
+  return 'pn' + Date.now().toString(36) + Math.floor(Math.random()*1000);
+}
+function blankPerson(id){
+  return {
+    id, nickname:'', realName:'', middleName:'', lastName:'', dob:'', dod:'',
+    deceased:false, gender:'', maidenName:'', occupation:'', note:'',
+    photoKey:'photo:'+id, divorced:false
+  };
+}
+// Merge two person records that represent the SAME individual (e.g. someone
+// created once as "Choti Muna's husband" and separately as "Ashraf, child of
+// p115"). Everything pointing at removeId gets repointed at keepId, blank
+// fields on keepId are backfilled from removeId, then removeId is deleted.
+function mergePeople(keepId, removeId){
+  if(keepId === removeId) return;
+  const keep = people[keepId];
+  const remove = people[removeId];
+  if(!keep || !remove) return;
+
+  Object.values(people).forEach(p=>{
+    if(p.id === keepId || p.id === removeId) return;
+    if(p.spouseId === removeId) p.spouseId = keepId;
+    if(p.parentId === removeId) p.parentId = keepId;
+    if(p.otherParentId === removeId) p.otherParentId = keepId;
+  });
+
+  if(!keep.parentId && remove.parentId) keep.parentId = remove.parentId;
+  if(!keep.spouseId && remove.spouseId) keep.spouseId = remove.spouseId;
+  ['nickname','realName','middleName','lastName','gender','maidenName','occupation','dob','dod','note'].forEach(f=>{
+    if(!keep[f] && remove[f]) keep[f] = remove[f];
+  });
+  if(remove.deceased) keep.deceased = true;
+  if(remove.marriageOrder && !keep.marriageOrder) keep.marriageOrder = remove.marriageOrder;
+  if(remove.divorced) keep.divorced = true;
+
+  delete people[removeId];
+}
+
+function getNameParts(p){
+  const hasReal = !!p.realName;
+  const row1 = hasReal ? p.realName : (p.nickname || '(unnamed)');
+  const row2 = [p.middleName, p.lastName].filter(Boolean).join(' ');
+  const sub = (hasReal && p.nickname) ? p.nickname : '';
+  return {
+    row1: p.deceased ? row1 + ' (D)' : row1,
+    row2,
+    sub
+  };
+}
+function displayName(p){
+  const { row1, row2 } = getNameParts(p);
+  return [row1, row2].filter(Boolean).join(' ');
+}
+
+// `isBlood` marks the one person in a couple box who is the actual
+// blood-line member relative to whatever parent sits above this box — the
+// connector line coming down from above always targets this specific
+// person (via the data-blood attribute below), never just whichever box
+// happens to be drawn first/left, since couples can be visually reordered
+// (e.g. a divorced spouse shown on the left of a centered person).
+function personHTML(p, dim, isBlood){
+  const { row1, row2, sub } = getNameParts(p);
+  const initials = (row1||'?').charAt(0).toUpperCase();
+  const dates = (p.dob||p.dod) ? `${p.dob||'?'} – ${p.dod||(p.deceased?'?':'')}` : (p.deceased ? 'deceased' : '');
+  const badge = marriageBadgeFor(p);
+  return `
+    <div class="person ${dim?'dim':''}" data-id="${p.id}"${isBlood ? ' data-blood="1"' : ''}>
+      ${badge ? `<div class="marriage-badge" title="Marriage ${badge}">${badge}</div>` : ''}
+      <div class="avatar" data-avatar="${p.id}">${initials}</div>
+      <div class="p-nick">${row1}</div>
+      ${row2 ? `<div class="p-row2">${row2}</div>` : ''}
+      ${sub ? `<div class="p-name">${sub}</div>` : ''}
+      ${dates ? `<div class="p-dates">${dates}</div>` : ''}
+    </div>`;
+}
+
+// Renders the core person + all their spouses, with each ∞ marriage symbol
+// placed between the exact two boxes it connects (not floating off to one
+// side), reflecting whichever of the two carries the divorced flag. Ordering
+// can be overridden — used to put a divorced first spouse on the LEFT and
+// the person themself in the middle, so their shared children read naturally
+// from that side's connector while a later spouse sits to the right.
+// `bloodId` marks which of the ordered people is the actual blood-line
+// member for connector-anchoring purposes; defaults to p.id.
+function coupleHTMLOrdered(p, spousesOrdered, bloodId){
+  bloodId = bloodId || p.id;
+  let html = `<div class="couple">`;
+  spousesOrdered.forEach((item, i)=>{
+    html += personHTML(item, false, item.id === bloodId);
+    if(i < spousesOrdered.length - 1){
+      // The link between item[i] and item[i+1] represents whichever of the
+      // pair is the actual spouse-record (carries spouseId + divorced flag).
+      const a = item, b = spousesOrdered[i+1];
+      const marriageRec = a.spouseId ? a : (b.spouseId ? b : null);
+      const divorced = marriageRec ? marriageRec.divorced : false;
+      const linkClass = divorced ? 'spouse-link divorced' : 'spouse-link';
+      html += `<div class="${linkClass}" title="${divorced?'Divorced':'Married'}">&infin;</div>`;
+    }
+  });
+  return html + `</div>`;
+}
+
+function coupleHTML(p, blue){
+  const spouses = getSpouses(p.id);
+  let html;
+  // Default ordering: person first, then spouses. If there are 2+ spouses
+  // and the FIRST one (earliest marriageOrder) is divorced, put that spouse
+  // on the left and the person in the middle, so their shared children read
+  // naturally from the left-hand connector, and the later spouse to the right.
+  if(p.id === 'p10' && spouses.length > 1){
+    // Special case: Nanu (p10) stays in the middle regardless of marriage
+    // order, with Tahira (marriage 1) to his left and Farha (marriage 2)
+    // to his right. bloodId stays p10 either way, so the connector coming
+    // down from Apa/Baredada always anchors to Nanu himself, never Tahira.
+    const byOrder = [...spouses].sort((a,b)=>(a.marriageOrder||1)-(b.marriageOrder||1));
+    const left = byOrder.filter(s=>(s.marriageOrder||1) === 1);
+    const right = byOrder.filter(s=>(s.marriageOrder||1) !== 1);
+    html = coupleHTMLOrdered(p, [...left, p, ...right]);
+  }else if(spouses.length > 1 && spouses[0].divorced){
+    html = coupleHTMLOrdered(p, [spouses[0], p, ...spouses.slice(1)]);
+  }else{
+    html = coupleHTMLOrdered(p, [p, ...spouses]);
+  }
+  return blue ? `<div class="couple-blue">${html}</div>` : html;
+}
+
+// The single entry point for placing any blood-line person's node in the
+// tree. `blue` marks a branch reached only through a grafted root (a
+// married-in relative's own birth family, rendered as its own root-level
+// tree) — once true, it propagates to EVERY descendant no matter how deep,
+// so a graft several generations down still renders fully blue, never
+// resetting to normal color partway. A married-in spouse's own birth
+// family is no longer nested inside this node — it renders as its own
+// root (see getRoots/renderTree) and is linked back here only visually,
+// via a manual cross-branch connector line (see drawConnectors).
+function buildNode(p, blue){
+  const children = getChildren(p.id);
+  const spouse = getSpouse(p.id);
+  let html = `<li class="node${blue ? ' graft-wrap' : ''}">`;
+  html += buildBareCoreNode(p, children, spouse, blue);
+  html += `</li>`;
+  return html;
+}
+
+// The couple box + its own descendants, without the outer <li> — used both
+// as a standalone node and nested inside a graft cluster. `blue` propagates
+// through to this couple's own box color and every child beneath it.
+function buildBareCoreNode(p, children, spouse, blue){
+  children = children || getChildren(p.id);
+  let html = `<div class="couple-wrap" data-anchor="${p.id}">${coupleHTML(p, blue)}`;
+  if(children.length){
+    html += `<div class="toggle-btn" data-toggle="${p.id}">−</div>`;
+  }
+  html += `</div>`;
+  if(children.length){
+    html += `<ul class="tree children-row" data-childwrap="${p.id}">`;
+    children.forEach(c=>{ html += buildNode(c, blue); });
+    html += `</ul>`;
+  }
+  return html;
+}
+
+function renderTree(){
+  const roots = getRoots();
+  const grafted = graftedParentIds();
+  let html = `<svg id="connector-svg"></svg><ul class="tree root-row">`;
+  // A root that's really a married-in relative's own birth family (e.g.
+  // p115/p116) renders blue from the start, same as any other grafted
+  // branch — the color still propagates to every descendant beneath it.
+  roots.forEach(r=>{ html += buildNode(r, grafted.has(r.id)); });
+  html += `</ul>`;
+  document.getElementById('tree').innerHTML = html;
+  document.getElementById('tree').classList.remove('loading');
+  attachPhotosToAvatars();
+  attachTreeEvents();
+  positionGraftRoots();
+  drawConnectors();
+}
+
+// A grafted root (a married-in spouse's own birth family, e.g. p115/p116)
+// starts out in normal flex flow at the root-row level — which is what
+// keeps it on the same y-axis/generation as every other root (Apa/Baredada
+// included), but leaves it wherever flex happens to lay it out horizontally,
+// often far off to the side of the person it actually belongs next to.
+//
+// Simply nudging it sideways with a transform isn't enough on its own —
+// a transform moves pixels but reserves no actual layout space, so the
+// shifted subtree just lands on top of whichever real siblings (e.g.
+// Goru/Raju) already occupy that spot. So this also inserts two invisible
+// spacer nodes flanking the anchor's own node (split before/after, since
+// the grafted subtree ends up roughly centered on the anchor person, not
+// flush to one side) — real flex items that push those neighboring
+// siblings out of the way and open up genuine empty room, sized to match
+// the grafted subtree's own width. THEN the transform drops the subtree
+// into that freshly-opened space, centered on the specific in-law (e.g.
+// right above Ashraf). Safe to call repeatedly: old spacers are removed
+// and every transform is reset before recomputing, so nothing compounds
+// across resizes or repeated calls.
+function positionGraftRoots(){
+  const treeEl = document.getElementById('tree');
+  if(!treeEl) return;
+  document.querySelectorAll('.graft-spacer').forEach(el=>el.remove());
+  const rootLis = document.querySelectorAll('.root-row > li.node');
+  rootLis.forEach(li=>{ li.style.transform = ''; li.style.zIndex = ''; });
+
+  const grafted = graftedParentIds();
+  grafted.forEach(rootId=>{
+    const rootWrap = document.querySelector(`.couple-wrap[data-anchor="${rootId}"]`);
+    if(!rootWrap) return;
+    const rootLi = rootWrap.closest('li.node');
+    // Only reposition actual root-level grafts — a graft nested deeper
+    // (inherited blue) is already positioned correctly by normal flow.
+    if(!rootLi || !rootLi.parentElement || !rootLi.parentElement.classList.contains('root-row')) return;
+    rootWrap.style.transform = ''; // reset from any previous call
+
+    // The specific in-law this birth family belongs to: whoever's parentId
+    // is this root AND who also married into another spot in the tree
+    // (spouseId set) — e.g. Ashraf, parentId:p115, spouseId:p12.
+    const anchorPerson = Object.values(people).find(p=>p.parentId===rootId && p.spouseId);
+    if(!anchorPerson) return;
+
+    // The anchor's actual node in the tree flow is their blood-line
+    // spouse's <li> (e.g. Choti Muna's li — Ashraf himself is just a box
+    // inside her couple, not a node of his own). That li is what needs a
+    // real reserved gap next to it.
+    const anchorSpouse = people[anchorPerson.spouseId];
+    const anchorSpouseWrap = anchorSpouse ? document.querySelector(`.couple-wrap[data-anchor="${anchorSpouse.id}"]`) : null;
+    const anchorLi = anchorSpouseWrap ? anchorSpouseWrap.closest('li.node') : null;
+    if(!anchorLi || !anchorLi.parentElement) return;
+
+    // Reserve a genuinely empty gap — as wide as the ENTIRE grafted
+    // subtree (top couple + every descendant row beneath it, whichever
+    // is widest) — as a real flex-item sibling placed right after the
+    // anchor's own li. That's a real layout element, so it physically
+    // pushes every later sibling (e.g. Goru, Raju) out of the way rather
+    // than just painting over them.
+    const graftWidth = rootLi.getBoundingClientRect().width;
+    if(!graftWidth) return; // hidden — skip
+
+    const spacer = document.createElement('li');
+    spacer.className = 'node graft-spacer';
+    spacer.style.cssText = `visibility:hidden; pointer-events:none; padding:0; margin:0; width:${graftWidth}px; flex:0 0 ${graftWidth}px;`;
+    anchorLi.parentElement.insertBefore(spacer, anchorLi.nextSibling);
+
+    // Drop the grafted subtree flush into that reserved gap (left edges
+    // aligned) — never centered on the in-law (Ashraf) himself. A graft's
+    // own children (e.g. Baba) render at exactly the same generation-depth
+    // as the in-law's own spouse (Choti Muna, also one row below their
+    // shared root) — centering p115/p116 directly on Ashraf would put
+    // Baba's box, one row down and centered under p115/p116, squarely on
+    // top of Choti Muna's own box. Placing it flush in the reserved gap
+    // instead guarantees zero overlap by construction.
+    //
+    // Any element we transform establishes its own CSS stacking context,
+    // so a plain transform can otherwise lose the hit-test/paint order
+    // battle to a geometrically-larger static container it now overlaps
+    // (e.g. Apa's own very-wide children-row) — leaving the whole grafted
+    // subtree, Baba and every descendant included, unclickable even
+    // though it's visibly on top. Pinning a z-index alongside the
+    // transform keeps it — and everything nested inside it — reliably on
+    // top and clickable.
+    const spacerRect = spacer.getBoundingClientRect();
+    const rootRect = rootLi.getBoundingClientRect();
+    if(!spacerRect.width || !rootRect.width) return;
+    const deltaX = spacerRect.left - rootRect.left;
+
+    // Vertical alignment: a grafted root has no parentId of its own, so by
+    // default it renders in the root-row — the tree's absolute topmost row.
+    // That's only correct when the anchor's own blood parent (e.g. Apa, for
+    // Choti Muna) is ALSO in that same topmost row. Once the tree grows
+    // upward past that point (a parent/grandparent added above Apa), the
+    // graft must no longer be pinned to the absolute top — it belongs
+    // exactly level with the anchor's own blood parent instead, since
+    // Ashraf and Choti Muna are the same generation, so their respective
+    // parents must be too. Find that reference row and translateY the
+    // whole grafted subtree (top couple + every descendant, Baba included)
+    // to line up with it. Falls back to no vertical shift (the old
+    // always-top behavior) when the anchor has no recorded blood parent,
+    // i.e. the anchor's own parent is itself already a tree root.
+    let deltaY = 0;
+    const anchorBloodParentId = anchorSpouse.parentId;
+    if(anchorBloodParentId){
+      const refWrap = document.querySelector(`.couple-wrap[data-anchor="${anchorBloodParentId}"] .couple`);
+      const graftCoupleEl = rootWrap.querySelector('.couple') || rootWrap;
+      if(refWrap && graftCoupleEl){
+        const refRect = refWrap.getBoundingClientRect();
+        const graftRect = graftCoupleEl.getBoundingClientRect();
+        if(refRect.height && graftRect.height){
+          deltaY = refRect.top - graftRect.top;
+        }
+      }
+    }
+
+    rootLi.style.transform = `translateX(${deltaX}px) translateY(${deltaY}px)`;
+    rootLi.style.zIndex = '2';
+
+    // Now nudge just the top couple box (p115/p116) — not the whole
+    // subtree, so Baba/descendants stay put in the reserved gap — so it
+    // sits midway between the graft's own children (e.g. Baba) and the
+    // specific in-law (Ashraf) it connects to, rather than directly over
+    // either one.
+    const graftChildrenRow = rootLi.querySelector(':scope > .children-row');
+    const anchorEl = document.querySelector(`.person[data-id="${anchorPerson.id}"]`);
+    const coupleEl = rootWrap.querySelector('.couple') || rootWrap;
+    if(graftChildrenRow && anchorEl){
+      const childrenRect = graftChildrenRow.getBoundingClientRect();
+      const anchorRect = anchorEl.getBoundingClientRect();
+      const coupleRect = coupleEl.getBoundingClientRect();
+      if(childrenRect.width && anchorRect.width && coupleRect.width){
+        const childrenCenterX = childrenRect.left + childrenRect.width/2;
+        const anchorCenterX = anchorRect.left + anchorRect.width/2;
+        const coupleCenterX = coupleRect.left + coupleRect.width/2;
+        const targetCenterX = (childrenCenterX + anchorCenterX) / 2;
+        rootWrap.style.transform = `translateX(${targetCenterX - coupleCenterX}px)`;
+      }
+    }
+  });
+}
+
+async function attachPhotosToAvatars(){
+  const avatars = document.querySelectorAll('[data-avatar]');
+  for(const el of avatars){
+    const id = el.getAttribute('data-avatar');
+    const photo = await loadPhoto(id);
+    if(photo){
+      el.innerHTML = `<img src="${photo}" alt="">`;
+    }
+  }
+}
+
+function attachTreeEvents(){
+  document.querySelectorAll('.person').forEach(el=>{
+    el.addEventListener('click', ()=>openPersonModal(el.getAttribute('data-id')));
+  });
+  document.querySelectorAll('[data-toggle]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const id = el.getAttribute('data-toggle');
+      const wrap = document.querySelector(`[data-childwrap="${id}"]`);
+      if(wrap){
+        const hidden = wrap.style.display === 'none';
+        wrap.style.display = hidden ? '' : 'none';
+        el.textContent = hidden ? '−' : '+';
+        // Collapsing/expanding any branch can shift horizontal layout
+        // anywhere in the flex flow, including under a grafted root's
+        // anchor — so re-settle grafted roots before redrawing lines.
+        positionGraftRoots();
+        drawConnectors();
+      }
+    });
+  });
+}
+
+// Draws every connector line by measuring actual rendered box positions, so
+// lines always run exactly from a parent's box to each visible child's box —
+// never past the farthest child, and never left dangling when a branch is
+// collapsed (its row is simply skipped).
+function drawConnectors(){
+  const svg = document.getElementById('connector-svg');
+  const treeEl = document.getElementById('tree');
+  if(!svg || !treeEl) return;
+  const svgRect = treeEl.getBoundingClientRect();
+  const width = treeEl.scrollWidth;
+  const height = treeEl.scrollHeight;
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+  function parentAnchorOf(li){
+  // Parent side: connect from the center of the marriage couple
+  // so the line comes from between partners. Blue (grafted) couples are
+  // wrapped in an extra .couple-blue div (see coupleHTML), so this can't
+  // require .couple to be a DIRECT child of .couple-wrap — only the
+  // .couple-wrap itself needs to be a direct child of this li.
+  return li.querySelector(':scope > .couple-wrap .couple');
+}
+
+function childAnchorOf(li){
+  // Child side: connect to the actual blood-line person specifically —
+  // marked with data-blood="1" — never just whichever box happens to be
+  // positioned first/left in the couple. This matters whenever a couple is
+  // visually reordered (e.g. Nanu centered with Tahira on his left): the
+  // line from Apa/Baredada must still land on Nanu, not on Tahira.
+  const wrap = li.querySelector(':scope > .couple-wrap');
+  if(!wrap) return null;
+  return wrap.querySelector('.person[data-blood="1"]') || wrap.querySelector('.person');
+  }
+
+  function point(el, edge){
+    const r = el.getBoundingClientRect();
+    return {
+      x: r.left + r.width/2 - svgRect.left,
+      y: (edge === 'top' ? r.top : r.bottom) - svgRect.top
+    };
+  }
+
+  let lines = '';
+  // Shared with the manual cross-branch connector further below: any
+  // blue (in-law) bar gets nudged a few px off the naive midpoint, since
+  // grafted rows tend to land at the same generation-height as an
+  // unrelated normal row elsewhere in the tree (e.g. Apa -> Goru/Raju),
+  // which would otherwise paint one bar directly on top of the other.
+  const GRAFT_LINK_Y_NUDGE = -5;
+  document.querySelectorAll('.children-row').forEach(row=>{
+    if(row.style.display === 'none') return; // collapsed — draw nothing
+    const parentLi = row.closest('li.node');
+    if(!parentLi) return;
+    const parentAnchor = parentAnchorOf(parentLi);
+    if(!parentAnchor) return;
+    const childLis = Array.from(row.children).filter(el=>el.classList.contains('node'));
+    const childAnchors = childLis.map(childAnchorOf).filter(Boolean);
+    if(!childAnchors.length) return;
+
+    // A row belongs to a married-in branch if its own parent li is a graft
+    // anchor (graft-wrap) — that couple box is itself the married-in one,
+    // or this row is nested inside an already-blue branch. Either way every
+    // child in this row (e.g. both Baba and Choti Muna's box, each
+    // independently) gets a blue line straight up to this same parent —
+    // never a line drawn between the children themselves.
+    const isBlue = parentLi.classList.contains('graft-wrap');
+    const stroke = isBlue ? 'var(--married-in)' : 'var(--connector)';
+
+    const parentPt = point(parentAnchor, 'bottom');
+    const childPts = childAnchors.map(a => point(a, 'top'));
+    const midY = (parentPt.y + childPts[0].y) / 2 + (isBlue ? GRAFT_LINK_Y_NUDGE : 0);
+    const barMinX = Math.min(parentPt.x, ...childPts.map(p=>p.x));
+    const barMaxX = Math.max(parentPt.x, ...childPts.map(p=>p.x));
+
+    lines += `<line class="conn-line" style="stroke:${stroke}" x1="${parentPt.x}" y1="${parentPt.y}" x2="${parentPt.x}" y2="${midY}"/>`;
+    if(barMaxX > barMinX){
+      lines += `<line class="conn-line" style="stroke:${stroke}" x1="${barMinX}" y1="${midY}" x2="${barMaxX}" y2="${midY}"/>`;
+    }
+    childPts.forEach(cp=>{
+      lines += `<line class="conn-line" style="stroke:${stroke}" x1="${cp.x}" y1="${midY}" x2="${cp.x}" y2="${cp.y}"/>`;
+    });
+  });
+
+  // Manual cross-branch connectors: a married-in spouse with their OWN
+  // known birth family (both spouseId AND parentId set — e.g. Ashraf,
+  // whose birth parents p115/p116 render as their own root-level tree)
+  // isn't reachable via the normal children-row walk above, since their
+  // birth family isn't nested under them in the DOM anymore. Draw one
+  // extra blue line straight from that birth family's couple box down to
+  // this specific person's own box, wherever it's rendered (inside their
+  // spouse's couple box). Skipped automatically if either end is currently
+  // hidden by a collapsed ancestor branch (zero-size rect).
+  //
+  // The horizontal bar of this line is nudged the same small amount above
+  // the naive midpoint as every blue parent->children bar above, for the
+  // same reason (avoids landing on an unrelated normal row at the same
+  // generation-height) and to keep every in-law connector at one
+  // consistent height, present or future.
+  Object.values(people).forEach(p=>{
+    if(!(p.spouseId && p.parentId)) return;
+    const parentWrap = document.querySelector(`.couple-wrap[data-anchor="${p.parentId}"]`);
+    const parentAnchor = parentWrap ? parentWrap.querySelector('.couple') : null;
+    const childAnchor = document.querySelector(`.person[data-id="${p.id}"]`);
+    if(!parentAnchor || !childAnchor) return;
+    const pr = parentAnchor.getBoundingClientRect();
+    const cr = childAnchor.getBoundingClientRect();
+    if(!pr.width || !pr.height || !cr.width || !cr.height) return; // hidden — skip
+
+    const parentPt = point(parentAnchor, 'bottom');
+    const childPt = point(childAnchor, 'top');
+    const midY = (parentPt.y + childPt.y) / 2 + GRAFT_LINK_Y_NUDGE;
+    const stroke = 'var(--married-in)';
+    lines += `<line class="conn-line" style="stroke:${stroke}" x1="${parentPt.x}" y1="${parentPt.y}" x2="${parentPt.x}" y2="${midY}"/>`;
+    lines += `<line class="conn-line" style="stroke:${stroke}" x1="${parentPt.x}" y1="${midY}" x2="${childPt.x}" y2="${midY}"/>`;
+    lines += `<line class="conn-line" style="stroke:${stroke}" x1="${childPt.x}" y1="${midY}" x2="${childPt.x}" y2="${childPt.y}"/>`;
+  });
+
+  svg.innerHTML = lines;
+}
+
+/* ---------- MODAL ---------- */
+function openPersonModal(id){
+  const p = people[id];
+  const hasSpouse = !!getSpouse(id);
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.id = 'person-modal';
+
+  const showMaiden = p.gender === 'Female' && hasSpouse;
+  const isRoot = !p.parentId && !p.spouseId;
+  const canAddParent = !p.parentId; // no blood-line parent recorded yet
+  const spouses = getSpouses(id);
+  const spouseButtonLabel = hasSpouse ? '+ Add Another Spouse' : '+ Add Spouse';
+  const hasKids = getChildren(id).length > 0;
+  const canRemove = !hasKids;
+
+  // If this person IS a spouse-record (married into the family), the
+  // divorce toggle applies to them directly. If this person is the
+  // blood-line member with one or more spouses, show a toggle per spouse
+  // when there's more than one; otherwise a single toggle for the one spouse.
+  let divorceControlsHTML = '';
+  if(p.spouseId){
+    divorceControlsHTML = `
+      <button id="toggle-divorce-btn" data-target="${p.id}">${p.divorced ? 'Mark as Married' : 'Mark as Divorced'}</button>`;
+  } else if(spouses.length === 1){
+    divorceControlsHTML = `
+      <button id="toggle-divorce-btn" data-target="${spouses[0].id}">${spouses[0].divorced ? 'Mark as Married' : 'Mark as Divorced'}</button>`;
+  } else if(spouses.length > 1){
+    divorceControlsHTML = spouses.map(s=>
+      `<button class="toggle-divorce-multi-btn" data-target="${s.id}">${s.divorced ? `Mark M${s.marriageOrder||''} Married` : `Mark M${s.marriageOrder||''} Divorced`}</button>`
+    ).join('');
+  }
+
+  const fieldsView = `
+    <div class="field"><label>Nickname</label><div class="readonly-val ${!p.nickname?'empty':''}">${p.nickname||'Not set'}</div></div>
+    <div class="field"><label>Real name</label><div class="readonly-val ${!p.realName?'empty':''}">${p.realName||'Unknown'}</div></div>
+    <div class="field"><label>Middle name</label><div class="readonly-val ${!p.middleName?'empty':''}">${p.middleName||'Unknown'}</div></div>
+    <div class="field"><label>Last name</label><div class="readonly-val ${!p.lastName?'empty':''}">${p.lastName||'Unknown'}</div></div>
+    <div class="field"><label>Gender</label><div class="readonly-val ${!p.gender?'empty':''}">${p.gender||'Not set'}</div></div>
+    ${showMaiden ? `<div class="field"><label>Maiden name</label><div class="readonly-val ${!p.maidenName?'empty':''}">${p.maidenName||'Unknown'}</div></div>` : ''}
+    <div class="field"><label>Occupation</label><div class="readonly-val ${!p.occupation?'empty':''}">${p.occupation||'Unknown'}</div></div>
+    <div class="field"><label>Date of birth</label><div class="readonly-val ${!p.dob?'empty':''}">${p.dob||'Unknown'}</div></div>
+    <div class="field"><label>Date of death</label><div class="readonly-val ${!p.dod?'empty':''}">${p.dod||(p.deceased?'Known deceased, date unknown':'—')}</div></div>
+    ${p.note ? `<div class="field"><label>Note</label><div class="readonly-val">${p.note}</div></div>` : ''}
+  `;
+
+  const fieldsEdit = `
+    <div class="field"><label>Nickname</label><input type="text" id="f-nickname" value="${escAttr(p.nickname)}"></div>
+    <div class="field"><label>Real name</label><input type="text" id="f-realName" value="${escAttr(p.realName)}"></div>
+    <div class="field"><label>Middle name</label><input type="text" id="f-middleName" value="${escAttr(p.middleName)}"></div>
+    <div class="field"><label>Last name</label><input type="text" id="f-lastName" value="${escAttr(p.lastName)}"></div>
+    <div class="field"><label>Gender</label>
+      <select id="f-gender" style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+        <option value="" ${!p.gender?'selected':''}>Not set</option>
+        <option value="Female" ${p.gender==='Female'?'selected':''}>Female</option>
+        <option value="Male" ${p.gender==='Male'?'selected':''}>Male</option>
+      </select>
+    </div>
+    <div class="field" id="maiden-field" style="display:${showMaiden?'':'none'};">
+      <label>Maiden name</label>
+      <input type="text" id="f-maidenName" value="${escAttr(p.maidenName)}">
+    </div>
+    <div class="field"><label>Occupation</label><input type="text" id="f-occupation" value="${escAttr(p.occupation)}"></div>
+    <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${p.dob}"></div>
+    <div class="field"><label>Date of death</label><input type="date" id="f-dod" value="${p.dod}"></div>
+    <div class="field"><label><input type="checkbox" id="f-deceased" ${p.deceased?'checked':''}> Deceased (date unknown)</label></div>
+    <div class="field"><label>Note</label><input type="text" id="f-note" value="${escAttr(p.note)}"></div>
+  `;
+
+  const familyActions = `
+    <div class="family-actions">
+      <div class="fa-label">Family tree actions</div>
+      <div class="fa-buttons">
+        <button id="add-spouse-btn">${spouseButtonLabel}</button>
+        <button id="add-child-btn">+ Add Child</button>
+        ${canAddParent ? `<button id="add-parent-btn">+ Add Parent</button>` : ''}
+        ${divorceControlsHTML}
+        <button id="link-person-btn">Link to Existing Person…</button>
+        <button id="remove-person-btn" class="danger" ${canRemove?'':'disabled title="Cannot remove: this person still has children in the tree"'}>Remove Person</button>
+      </div>
+      <div class="fa-label" style="margin-top:10px;">Use "Link to Existing Person" when this record and another record in the tree are actually the same individual (e.g. someone who married in and whose own birth family is already entered elsewhere) — it merges the two into one.</div>
+    </div>
+  `;
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <button class="close-x" id="modal-close">✕</button>
+      <div class="modal-photo" id="modal-photo-box">…</div>
+      ${editMode ? `<input type="file" accept="image/*" id="photo-input" class="file-btn">` : ''}
+      <h2>${displayName(p)}</h2>
+      <div class="sub">${editMode ? 'Editing — changes save automatically' : 'Viewing only'}</div>
+      <div id="fields-container">${editMode ? fieldsEdit : fieldsView}</div>
+      ${editMode ? familyActions : ''}
+      <div class="modal-actions">
+        ${editMode ? `<button class="primary" id="save-btn">Save</button>` : ''}
+        <button id="close-btn">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  loadPhoto(id).then(photo=>{
+    const box = document.getElementById('modal-photo-box');
+    if(!box) return;
+    if(photo){
+      box.innerHTML = `<img src="${photo}" alt="">`;
+      box.classList.add('has-photo');
+      box.onclick = ()=>openPhotoLightbox(photo, displayName(p));
+    }else{
+      box.innerHTML = (displayName(p)||'?').charAt(0).toUpperCase();
+    }
+  });
+
+  document.getElementById('modal-close').onclick = closeModal;
+  document.getElementById('close-btn').onclick = closeModal;
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeModal(); });
+
+  // reads the open form back into p, without saving to storage yet
+  function readFormIntoPerson(){
+    p.nickname = document.getElementById('f-nickname').value.trim();
+    p.realName = document.getElementById('f-realName').value.trim();
+    p.middleName = document.getElementById('f-middleName').value.trim();
+    p.lastName = document.getElementById('f-lastName').value.trim();
+    p.gender = document.getElementById('f-gender').value;
+    p.maidenName = document.getElementById('f-maidenName').value.trim();
+    p.occupation = document.getElementById('f-occupation').value.trim();
+    p.dob = document.getElementById('f-dob').value;
+    p.dod = document.getElementById('f-dod').value;
+    p.deceased = document.getElementById('f-deceased').checked;
+    p.note = document.getElementById('f-note').value.trim();
+  }
+
+  if(editMode){
+    document.getElementById('photo-input').addEventListener('change', async (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = async ()=>{
+        await savePhoto(id, reader.result);
+        const box = document.getElementById('modal-photo-box');
+        box.innerHTML = `<img src="${reader.result}" alt="">`;
+        box.classList.add('has-photo');
+        box.onclick = ()=>openPhotoLightbox(reader.result, displayName(p));
+        const avatarEl = document.querySelector(`[data-avatar="${id}"]`);
+        if(avatarEl) avatarEl.innerHTML = `<img src="${reader.result}" alt="">`;
+      };
+      reader.readAsDataURL(file);
+    });
+    document.getElementById('f-gender').addEventListener('change', (e)=>{
+      const maidenField = document.getElementById('maiden-field');
+      maidenField.style.display = (e.target.value === 'Female' && hasSpouse) ? '' : 'none';
+    });
+    document.getElementById('save-btn').onclick = async ()=>{
+      readFormIntoPerson();
+      await saveAllData();
+      closeModal();
+      renderTree();
+    };
+
+    const addSpouseBtn = document.getElementById('add-spouse-btn');
+    if(addSpouseBtn) addSpouseBtn.onclick = async ()=>{
+      readFormIntoPerson();
+      const existingSpouses = getSpouses(id);
+      const nid = newPersonId();
+      const np = blankPerson(nid);
+      np.spouseId = id;
+      if(existingSpouses.length > 0){
+        if(!existingSpouses[0].marriageOrder) existingSpouses[0].marriageOrder = 1;
+        np.marriageOrder = Math.max(...existingSpouses.map(s=>s.marriageOrder||1)) + 1;
+      }
+      people[nid] = np;
+      await saveAllData();
+      closeModal();
+      renderTree();
+      openPersonModal(nid);
+    };
+
+    document.getElementById('add-child-btn').onclick = async ()=>{
+      readFormIntoPerson();
+      const bloodParentId = getBloodParentId(id);
+      const otherParentId = getOtherParentId(id);
+      const nid = newPersonId();
+      const np = blankPerson(nid);
+      np.parentId = bloodParentId;
+      if(otherParentId) np.otherParentId = otherParentId;
+      people[nid] = np;
+      await saveAllData();
+      closeModal();
+      renderTree();
+      openPersonModal(nid);
+    };
+
+    const addParentBtn = document.getElementById('add-parent-btn');
+    if(addParentBtn) addParentBtn.onclick = async ()=>{
+      readFormIntoPerson();
+      const nid = newPersonId();
+      const np = blankPerson(nid);
+      people[nid] = np;
+      p.parentId = nid;
+      await saveAllData();
+      closeModal();
+      renderTree();
+      openPersonModal(nid);
+    };
+
+    const removeBtn = document.getElementById('remove-person-btn');
+    if(removeBtn && canRemove) removeBtn.onclick = async ()=>{
+      if(!confirm(`Remove ${displayName(p)} from the tree? This can't be undone.`)) return;
+      delete people[id];
+      await saveAllData();
+      closeModal();
+      renderTree();
+    };
+
+    const divorceBtn = document.getElementById('toggle-divorce-btn');
+    if(divorceBtn) divorceBtn.onclick = async ()=>{
+      readFormIntoPerson();
+      const targetId = divorceBtn.getAttribute('data-target');
+      const target = people[targetId];
+      if(target){
+        target.divorced = !target.divorced;
+        if(!target.marriageOrder) target.marriageOrder = 1;
+      }
+      await saveAllData();
+      closeModal();
+      renderTree();
+      openPersonModal(id);
+    };
+
+    document.querySelectorAll('.toggle-divorce-multi-btn').forEach(btn=>{
+      btn.onclick = async ()=>{
+        readFormIntoPerson();
+        const targetId = btn.getAttribute('data-target');
+        const target = people[targetId];
+        if(target){
+          target.divorced = !target.divorced;
+          if(!target.marriageOrder) target.marriageOrder = 1;
+        }
+        await saveAllData();
+        closeModal();
+        renderTree();
+        openPersonModal(id);
+      };
+    });
+
+    const linkBtn = document.getElementById('link-person-btn');
+    if(linkBtn) linkBtn.onclick = ()=>{
+      readFormIntoPerson();
+      openLinkPickerModal(id);
+    };
+  }
+}
+function openLinkPickerModal(currentId){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.id = 'link-modal';
+  overlay.innerHTML = `
+    <div class="modal">
+      <button class="close-x" id="link-close">✕</button>
+      <h2>Link to Existing Person</h2>
+      <div class="sub">Search for the other record of this same person, then click it to merge. This keeps ${escAttr(displayName(people[currentId]))}'s id and absorbs the other record's family connections into it. This can't be undone.</div>
+      <input type="text" id="link-search" placeholder="Search a name..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+      <div id="link-results" style="margin-top:14px; max-height:280px; overflow-y:auto;"></div>
+      <div class="modal-actions"><button id="link-cancel">Cancel</button></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('link-close').onclick = ()=>overlay.remove();
+  document.getElementById('link-cancel').onclick = ()=>overlay.remove();
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.remove(); });
+
+  function renderResults(q){
+    const box = document.getElementById('link-results');
+    const matches = Object.values(people)
+      .filter(x=>x.id !== currentId)
+      .filter(x=>{
+        if(!q) return false;
+        const hay = [x.nickname,x.realName,x.middleName,x.lastName].join(' ').toLowerCase();
+        return hay.includes(q.toLowerCase());
+      })
+      .slice(0, 20);
+    if(!q){ box.innerHTML = `<div style="color:var(--muted); font-size:13px;">Start typing a name to search.</div>`; return; }
+    if(!matches.length){ box.innerHTML = `<div style="color:var(--muted); font-size:13px;">No matches.</div>`; return; }
+    box.innerHTML = matches.map(m=>`
+      <div class="link-result" data-target="${m.id}" style="padding:9px 10px; border:1px solid var(--line); border-radius:6px; margin-bottom:6px; cursor:pointer;">
+        <strong>${escAttr(displayName(m))}</strong>
+      </div>
+    `).join('');
+    box.querySelectorAll('.link-result').forEach(el=>{
+      el.addEventListener('click', async ()=>{
+        const targetId = el.getAttribute('data-target');
+        if(!confirm(`Merge "${displayName(people[targetId])}" into "${displayName(people[currentId])}"? This can't be undone.`)) return;
+        mergePeople(currentId, targetId);
+        await saveAllData();
+        overlay.remove();
+        closeModal();
+        renderTree();
+        openPersonModal(currentId);
+      });
+    });
+  }
+  document.getElementById('link-search').addEventListener('input', (e)=>renderResults(e.target.value.trim()));
+  renderResults('');
+}
+
+function closeModal(){
+  const m = document.getElementById('person-modal');
+  if(m) m.remove();
+}
+
+// Full-size photo view — the whole point of the tree is matching faces to
+// names, so clicking the (already-enlarged) profile photo opens it at its
+// actual size, uncropped by the circular frame.
+function openPhotoLightbox(src, name){
+  const box = document.createElement('div');
+  box.className = 'photo-lightbox';
+  box.innerHTML = `
+    <button class="lightbox-close" id="lightbox-close">✕</button>
+    <img src="${src}" alt="">
+    <div class="lightbox-name">${name||''}</div>
+  `;
+  document.body.appendChild(box);
+  const close = ()=>box.remove();
+  box.addEventListener('click', close);
+  document.getElementById('lightbox-close').addEventListener('click', (e)=>{ e.stopPropagation(); close(); });
+  const escHandler = (e)=>{ if(e.key==='Escape'){ close(); window.removeEventListener('keydown', escHandler); } };
+  window.addEventListener('keydown', escHandler);
+}
+function escAttr(s){
+  return (s||'').replace(/"/g,'&quot;');
+}
+
+/* ---------- EDIT MODE / PIN ---------- */
+function openPinModal(){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.id = 'pin-modal';
+  overlay.innerHTML = `
+    <div class="modal">
+      <button class="close-x" id="pin-close">✕</button>
+      <h2>Enter Edit PIN</h2>
+      <div class="sub">Only people with the PIN can add photos or edit info.</div>
+      <div class="pin-row">
+        <input type="text" id="pin-input" placeholder="PIN" style="flex:1; padding:9px 10px; border:1px solid var(--line); border-radius:6px;">
+        <button class="primary" id="pin-submit">Unlock</button>
+      </div>
+      <div id="pin-error" style="color:var(--danger); font-size:12px; margin-top:8px; display:none;">Incorrect PIN.</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('pin-close').onclick = ()=>overlay.remove();
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.remove(); });
+  document.getElementById('pin-submit').onclick = ()=>{
+    const val = document.getElementById('pin-input').value;
+    if(val === EDIT_PIN){
+      editMode = true;
+      updateEditUI();
+      overlay.remove();
+    }else{
+      document.getElementById('pin-error').style.display = 'block';
+    }
+  };
+  document.getElementById('pin-input').addEventListener('keydown', (e)=>{
+    if(e.key==='Enter') document.getElementById('pin-submit').click();
+  });
+}
+
+function updateEditUI(){
+  const badge = document.getElementById('edit-status');
+  const btn = document.getElementById('edit-toggle');
+  if(editMode){
+    badge.textContent = 'Editing enabled';
+    badge.style.background = '#e7f2e5';
+    badge.style.color = '#3d6b34';
+    badge.style.borderColor = '#3d6b34';
+    btn.textContent = 'Exit Editing';
+  }else{
+    badge.textContent = 'Viewing';
+    badge.style.background = '';
+    badge.style.color = '';
+    badge.style.borderColor = '';
+    btn.textContent = 'Enable Editing';
+  }
+}
+
+document.getElementById('edit-toggle').addEventListener('click', ()=>{
+  if(editMode){
+    editMode = false;
+    updateEditUI();
+  }else{
+    openPinModal();
+  }
+});
+
+/* ---------- BACKUP / EXPORT ---------- */
+async function exportBackup(){
+  const btn = document.getElementById('backup-btn');
+  const originalText = btn.textContent;
+  btn.textContent = 'Preparing…';
+  try{
+    const photos = {};
+    const photoKeys = await kvListKeys('photo:');
+    for(const k of photoKeys){
+      const value = await kvGet(k);
+      if(value) photos[k] = value;
+    }
+    const backup = { people, photos, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'family-tree-backup.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }catch(e){
+    alert('Backup failed: ' + e.message);
+  }
+  btn.textContent = originalText;
+}
+document.getElementById('backup-btn').addEventListener('click', exportBackup);
+
+/* ---------- BACKUP / IMPORT ----------
+   Used to carry data from one storage backend to another — e.g. from this
+   Claude-hosted version over to a Supabase-backed copy on Netlify. Loads a
+   previously-downloaded backup file into whichever storage is currently active.
+*/
+async function importBackup(file){
+  const importBtn = document.getElementById('import-btn');
+  const originalText = importBtn.textContent;
+  try{
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    if(!backup.people) throw new Error('This file does not look like a family tree backup.');
+    if(!confirm('This will overwrite current data with the contents of this backup. Continue?')) return;
+    importBtn.textContent = 'Importing…';
+
+    Object.keys(backup.people).forEach(id=>{ people[id] = backup.people[id]; });
+    await saveAllData();
+
+    if(backup.photos){
+      for(const key of Object.keys(backup.photos)){
+        await kvSet(key, backup.photos[key]);
+        photoCache[key.replace('photo:', '')] = backup.photos[key];
+      }
+    }
+    renderTree();
+    alert('Backup imported successfully.');
+  }catch(e){
+    alert('Import failed: ' + e.message);
+  }
+  importBtn.textContent = originalText;
+}
+document.getElementById('import-btn').addEventListener('click', ()=>{
+  document.getElementById('import-file-input').click();
+});
+document.getElementById('import-file-input').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(file) importBackup(file);
+  e.target.value = '';
+});
+
+/* ---------- SEARCH ---------- */
+document.getElementById('search').addEventListener('input', (e)=>{
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.person').forEach(el=>{
+    const id = el.getAttribute('data-id');
+    const p = people[id];
+    const hay = [p.nickname,p.realName,p.middleName,p.lastName].join(' ').toLowerCase();
+    if(!q){ el.classList.remove('dim'); return; }
+    if(hay.includes(q)){ el.classList.remove('dim'); }
+    else{ el.classList.add('dim'); }
+  });
+});
+
+/* ---------- ZOOM ---------- */
+// Uses the CSS `zoom` property (not `transform: scale`) on #tree itself.
+// Unlike transform, `zoom` changes the element's actual layout box, so
+// scrollWidth/scrollHeight and getBoundingClientRect() all stay in the same
+// coordinate space automatically — drawConnectors() and positionGraftRoots()
+// need zero changes, and scrolling to reach an over-large zoomed-in tree
+// just works via #tree-wrap's own scrollbars.
+let currentZoom = 1;
+const ZOOM_MIN = 0.3, ZOOM_MAX = 2.5, ZOOM_STEP = 0.1;
+
+function applyZoom(z, opts){
+  currentZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+  const treeEl = document.getElementById('tree');
+  if(treeEl) treeEl.style.zoom = currentZoom;
+  const label = document.getElementById('zoom-level');
+  if(label) label.textContent = Math.round(currentZoom * 100) + '%';
+  // Redraw connectors / re-settle grafted roots once the browser has
+  // actually applied the new zoomed layout.
+  requestAnimationFrame(()=>{ positionGraftRoots(); drawConnectors(); });
+}
+
+document.getElementById('zoom-in').addEventListener('click', ()=>applyZoom(currentZoom + ZOOM_STEP));
+document.getElementById('zoom-out').addEventListener('click', ()=>applyZoom(currentZoom - ZOOM_STEP));
+document.getElementById('zoom-level').addEventListener('click', ()=>applyZoom(1));
+
+// Ctrl/Cmd + scroll wheel (this is also how trackpad pinch-to-zoom is
+// reported by Chrome/Firefox/Safari) zooms instead of scrolling the page.
+document.getElementById('tree-wrap').addEventListener('wheel', (e)=>{
+  if(!(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  applyZoom(currentZoom - e.deltaY * 0.01);
+}, {passive:false});
+
+// Native pinch gesture on iOS Safari (doesn't fire ctrl+wheel events).
+let gestureStartZoom = 1;
+document.getElementById('tree-wrap').addEventListener('gesturestart', (e)=>{
+  e.preventDefault();
+  gestureStartZoom = currentZoom;
+});
+document.getElementById('tree-wrap').addEventListener('gesturechange', (e)=>{
+  e.preventDefault();
+  applyZoom(gestureStartZoom * e.scale);
+});
+
+// Keyboard shortcuts: Ctrl/Cmd +, -, 0
+window.addEventListener('keydown', (e)=>{
+  if(!(e.ctrlKey || e.metaKey)) return;
+  if(e.key === '+' || e.key === '='){ e.preventDefault(); applyZoom(currentZoom + ZOOM_STEP); }
+  else if(e.key === '-'){ e.preventDefault(); applyZoom(currentZoom - ZOOM_STEP); }
+  else if(e.key === '0'){ e.preventDefault(); applyZoom(1); }
+});
+
+window.addEventListener('resize', ()=>{ positionGraftRoots(); drawConnectors(); });
+
+/* ---------- INIT ---------- */
+(async function init(){
+  await loadData();
+  renderTree();
+})();
+</script>
+</body>
+</html>
