@@ -261,7 +261,7 @@
 // Each person: id, nickname, realName, middleName, lastName, dob, dod, deceased(pm), photoKey, spouseId, parentId, husbandLeftOut
 const seedPeople = [
   {id:'p1', nickname:'Apa', realName:'', note:''},
-  {id:'p2', nickname:'Baredada', realName:'', deceased:true, spouseId:'p1'},
+  {id:'p2', nickname:'Baredada', realName:'', deceased:true, spouseId:'p1', parentId:'p130'},
 
   {id:'p3', nickname:'Muni', realName:'Nafees', parentId:'p1'},
   {id:'p4', nickname:'Maqbool', realName:'', deceased:true, spouseId:'p3'},
@@ -417,6 +417,9 @@ const seedPeople = [
   {id:'p112', nickname:'', realName:'Zeshuan', spouseId:'p111'},
   {id:'p113', nickname:'', realName:'Jannah', parentId:'p111'},
   {id:'p114', nickname:'', realName:'Nile', parentId:'p111'},
+
+  {id:'p130', nickname:'', realName:'', deceased:true, note:"Baredada's father"},
+  {id:'p131', nickname:'', realName:'', deceased:true, spouseId:'p131', note:"Baredada's mother"},
 ];
 
 // normalize fields
@@ -981,6 +984,24 @@ function positionGraftRoots(){
         const graftRect = graftCoupleEl.getBoundingClientRect();
         if(refRect.height && graftRect.height){
           deltaY = refRect.top - graftRect.top;
+        }
+      }
+    }else{
+      // The anchor's own spouse (e.g. Apa) has no recorded parent — they
+      // ARE the tree's topmost generation — so this graft (Baredada's own
+      // birth parents) belongs exactly one generation ABOVE the root row,
+      // not level with it. Measure one generation's real vertical rhythm
+      // from the anchor's own row down to its children-row, and shift the
+      // graft up by that same amount so it lands above instead of beside.
+      const anchorChildrenRow = anchorLi.querySelector(':scope > .children-row');
+      const graftCoupleEl = rootWrap.querySelector('.couple') || rootWrap;
+      if(anchorChildrenRow && graftCoupleEl){
+        const anchorRect = anchorLi.getBoundingClientRect();
+        const childrenRect = anchorChildrenRow.getBoundingClientRect();
+        const graftRect = graftCoupleEl.getBoundingClientRect();
+        if(anchorRect.height && childrenRect.height && graftRect.height){
+          const rowStep = childrenRect.top - anchorRect.top;
+          deltaY = (anchorRect.top - rowStep) - graftRect.top;
         }
       }
     }
