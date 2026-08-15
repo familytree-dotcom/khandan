@@ -79,6 +79,7 @@
   #zoom-level:hover{color:var(--accent);}
   #tree{
     display:flex; justify-content:center; min-width:max-content; position:relative;
+    transform-origin: top center;
   }
   #connector-svg{
     position:absolute; top:0; left:0; pointer-events:none; z-index:0; overflow:visible;
@@ -731,6 +732,20 @@ function mergePeople(keepId, removeId){
   delete people[removeId];
 }
 
+// Clears every reference to a removed person's id elsewhere in the data,
+// so no other record is left pointing at an id that no longer exists —
+// the same three link fields mergePeople() already knows about
+// (spouseId, parentId, otherParentId), except here the reference is
+// cleared rather than repointed, since the person is gone, not merged.
+function unlinkPerson(removedId){
+  Object.values(people).forEach(p=>{
+    if(p.id === removedId) return;
+    if(p.spouseId === removedId) delete p.spouseId;
+    if(p.parentId === removedId) delete p.parentId;
+    if(p.otherParentId === removedId) delete p.otherParentId;
+  });
+}
+
 function getNameParts(p){
   const hasReal = !!p.realName;
   const row1 = hasReal ? p.realName : (p.nickname || '(unnamed)');
@@ -868,8 +883,7 @@ function renderTree(){
   document.getElementById('tree').classList.remove('loading');
   attachPhotosToAvatars();
   attachTreeEvents();
-  positionGraftRoots();
-  drawConnectors();
+  requestAnimationFrame(()=>{ positionGraftRoots(); drawConnectors(); });
 }
 
 // A grafted root (a married-in spouse's own birth family, e.g. p115/p116)
@@ -897,6 +911,8 @@ function positionGraftRoots(){
   document.querySelectorAll('.graft-spacer').forEach(el=>el.remove());
   const rootLis = document.querySelectorAll('.root-row > li.node');
   rootLis.forEach(li=>{ li.style.transform = ''; li.style.zIndex = ''; });
+  const wrapEl = document.getElementById('tree-wrap');
+  if(wrapEl) wrapEl.style.paddingTop = '40px'; // reset before remeasuring below
 
   const grafted = graftedParentIds();
   grafted.forEach(rootId=>{
@@ -932,9 +948,13 @@ function positionGraftRoots(){
     const graftWidth = rootLi.getBoundingClientRect().width;
     if(!graftWidth) return; // hidden — skip
 
+    // graftWidth is an already-zoomed measurement, but this spacer is a
+    // descendant of zoomed #tree — dividing here cancels the ambient
+    // zoom's own extra multiplication so the rendered width matches
+    // graftWidth exactly, at any zoom level.
     const spacer = document.createElement('li');
     spacer.className = 'node graft-spacer';
-    spacer.style.cssText = `visibility:hidden; pointer-events:none; padding:0; margin:0; width:${graftWidth}px; flex:0 0 ${graftWidth}px;`;
+    spacer.style.cssText = `visibility:hidden; pointer-events:none; padding:0; margin:0; width:${graftWidth/currentZoom}px; flex:0 0 ${graftWidth/currentZoom}px;`;
     anchorLi.parentElement.insertBefore(spacer, anchorLi.nextSibling);
 
     // Drop the grafted subtree flush into that reserved gap (left edges
@@ -984,9 +1004,23 @@ function positionGraftRoots(){
           deltaY = refRect.top - graftRect.top;
         }
       }
+    }else{
+      // Anchor (e.g. Baredada) is themself the tree's topmost root — there's
+      // no existing row above to line up with, so shift the whole grafted
+      // subtree up by exactly one generation's height instead of leaving it
+      // pinned to the same row as the anchor.
+      const anchorCoupleEl = anchorSpouseWrap.querySelector('.couple') || anchorSpouseWrap;
+      const anchorCoupleRect = anchorCoupleEl.getBoundingClientRect();
+      const ROW_GAP = 32 * currentZoom; // matches the ul.tree / children-row padding-top
+      if(anchorCoupleRect.height){
+        deltaY = -(anchorCoupleRect.height + ROW_GAP);
+      }
     }
 
-    rootLi.style.transform = `translateX(${deltaX}px) translateY(${deltaY}px)`;
+    // Same double-scaling issue: deltaX/deltaY were measured from an
+    // already-zoomed rect, but this transform is applied to a descendant
+    // of zoomed #tree, so it would otherwise get zoomed a second time.
+    rootLi.style.transform = `translateX(${deltaX/currentZoom}px) translateY(${deltaY/currentZoom}px)`;
     rootLi.style.zIndex = '2';
 
     // Now nudge just the top couple box (p115/p116) — not the whole
@@ -1006,10 +1040,29 @@ function positionGraftRoots(){
         const anchorCenterX = anchorRect.left + anchorRect.width/2;
         const coupleCenterX = coupleRect.left + coupleRect.width/2;
         const targetCenterX = (childrenCenterX + anchorCenterX) / 2;
-        rootWrap.style.transform = `translateX(${targetCenterX - coupleCenterX}px)`;
+        rootWrap.style.transform = `translateX(${(targetCenterX - coupleCenterX)/currentZoom}px)`;
       }
     }
   });
+
+  // Grafted branches can push content above y=0 via a negative translateY,
+  // which is outside #tree-wrap's normal scroll range — grow the wrapper's
+  // own top padding to cover however far up the highest branch now reaches,
+  // so there's always enough scroll room to reach it.
+  if(wrapEl){
+    requestAnimationFrame(()=>{
+      let minTop = 0;
+      document.querySelectorAll('.couple-wrap .couple').forEach(el=>{
+        const r = el.getBoundingClientRect();
+        if(r.top < minTop) minTop = r.top;
+      });
+      if(minTop < 0){
+        const wrapRect = wrapEl.getBoundingClientRect();
+        const overflow = wrapRect.top - minTop;
+        wrapEl.style.paddingTop = (40 + overflow) + 'px';
+      }
+    });
+  }
 }
 
 async function attachPhotosToAvatars(){
@@ -1055,6 +1108,12 @@ function drawConnectors(){
   const treeEl = document.getElementById('tree');
   if(!svg || !treeEl) return;
   const svgRect = treeEl.getBoundingClientRect();
+  // Describe the svg's own coordinate system in the SAME unzoomed
+  // content-space units as everything else (dividing currentZoom back
+  // out here), instead of already-zoomed pixels. The svg is a descendant
+  // of zoomed #tree, so the ambient zoom then scales it visually along
+  // with every other element automatically — no manual counter-scaling,
+  // and nothing drifts out of sync at any zoom level.
   const width = treeEl.scrollWidth;
   const height = treeEl.scrollHeight;
   svg.setAttribute('width', width);
@@ -1084,8 +1143,8 @@ function childAnchorOf(li){
   function point(el, edge){
     const r = el.getBoundingClientRect();
     return {
-      x: r.left + r.width/2 - svgRect.left,
-      y: (edge === 'top' ? r.top : r.bottom) - svgRect.top
+      x: (r.left + r.width/2 - svgRect.left) / currentZoom,
+      y: ((edge === 'top' ? r.top : r.bottom) - svgRect.top) / currentZoom
     };
   }
 
@@ -1180,7 +1239,12 @@ function openPersonModal(id){
   const canAddParent = !p.parentId; // no blood-line parent recorded yet
   const spouses = getSpouses(id);
   const spouseButtonLabel = hasSpouse ? '+ Add Another Spouse' : '+ Add Spouse';
-  const hasKids = getChildren(id).length > 0;
+  // Raw, not getChildren() — getChildren() hides any child who has since
+  // married into another spot in the tree (spouseId set), but that
+  // child's parentId still points back at this person, so removal must
+  // still be blocked for them too, not just for kids shown directly
+  // underneath.
+  const hasKids = getChildrenRaw(id).length > 0;
   const canRemove = !hasKids;
 
   // If this person IS a spouse-record (married into the family), the
@@ -1375,6 +1439,7 @@ function openPersonModal(id){
     const removeBtn = document.getElementById('remove-person-btn');
     if(removeBtn && canRemove) removeBtn.onclick = async ()=>{
       if(!confirm(`Remove ${displayName(p)} from the tree? This can't be undone.`)) return;
+      unlinkPerson(id);
       delete people[id];
       await saveAllData();
       closeModal();
@@ -1654,14 +1719,35 @@ let currentZoom = 1;
 const ZOOM_MIN = 0.3, ZOOM_MAX = 2.5, ZOOM_STEP = 0.1;
 
 function applyZoom(z, opts){
+  const wrapEl = document.getElementById('tree-wrap');
+  const oldZoom = currentZoom;
   currentZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
   const treeEl = document.getElementById('tree');
-  if(treeEl) treeEl.style.zoom = currentZoom;
+
+  // Capture whatever content point is currently centered in the viewport,
+  // in unzoomed content-space, BEFORE changing zoom — so it can be
+  // re-centered after. Without this, zoom always grows from #tree's own
+  // fixed top-left layout position, which is why zooming in previously
+  // appeared to push the tree off to the right instead of staying put.
+  let centerX, centerY;
+  if(wrapEl && oldZoom){
+    centerX = (wrapEl.scrollLeft + wrapEl.clientWidth/2) / oldZoom;
+    centerY = (wrapEl.scrollTop + wrapEl.clientHeight/2) / oldZoom;
+  }
+
+  if(treeEl) treeEl.style.transform = `scale(${currentZoom})`;
   const label = document.getElementById('zoom-level');
   if(label) label.textContent = Math.round(currentZoom * 100) + '%';
-  // Redraw connectors / re-settle grafted roots once the browser has
-  // actually applied the new zoomed layout.
-  requestAnimationFrame(()=>{ positionGraftRoots(); drawConnectors(); });
+
+  requestAnimationFrame(()=>{
+    if(wrapEl && centerX !== undefined){
+      wrapEl.scrollLeft = centerX * currentZoom - wrapEl.clientWidth/2;
+      wrapEl.scrollTop = centerY * currentZoom - wrapEl.clientHeight/2;
+    }
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{ positionGraftRoots(); drawConnectors(); });
+    });
+  });
 }
 
 document.getElementById('zoom-in').addEventListener('click', ()=>applyZoom(currentZoom + ZOOM_STEP));
