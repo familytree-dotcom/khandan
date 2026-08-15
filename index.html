@@ -1181,7 +1181,16 @@ function childAnchorOf(li){
   // grafted rows tend to land at the same generation-height as an
   // unrelated normal row elsewhere in the tree (e.g. Apa -> Goru/Raju),
   // which would otherwise paint one bar directly on top of the other.
-  const GRAFT_LINK_Y_NUDGE = -5;
+ const GRAFT_LINK_Y_NUDGE_BASE = -10;
+  // Guarantees every distinct grafted root gets a genuinely different nudge
+  // (sorted, sequential) instead of a hash that can collide between two
+  // roots and make them land on the exact same offset.
+  const sortedGraftRootIds = Array.from(graftedParentIds()).sort();
+  function graftNudgeFor(rootId){
+    const idx = sortedGraftRootIds.indexOf(rootId);
+    if(idx === -1) return GRAFT_LINK_Y_NUDGE_BASE;
+    return GRAFT_LINK_Y_NUDGE_BASE - (idx * 4); // -5, -9, -13px, etc. — always distinct
+  }
   document.querySelectorAll('.children-row').forEach(row=>{
     if(row.style.display === 'none') return; // collapsed — draw nothing
     const parentLi = row.closest('li.node');
@@ -1203,7 +1212,9 @@ function childAnchorOf(li){
 
     const parentPt = point(parentAnchor, 'bottom');
     const childPts = childAnchors.map(a => point(a, 'top'));
-    const midY = (parentPt.y + childPts[0].y) / 2 + (isBlue ? GRAFT_LINK_Y_NUDGE : 0);
+    const graftRootLi = isBlue ? parentLi.closest('.root-row > li.graft-wrap') : null;
+    const graftRootAnchorId = graftRootLi ? graftRootLi.querySelector(':scope > .couple-wrap')?.getAttribute('data-anchor') : null;
+    const midY = (parentPt.y + childPts[0].y) / 2 + (isBlue ? graftNudgeFor(graftRootAnchorId || 'default') : 0);
     const barMinX = Math.min(parentPt.x, ...childPts.map(p=>p.x));
     const barMaxX = Math.max(parentPt.x, ...childPts.map(p=>p.x));
 
@@ -1243,7 +1254,7 @@ function childAnchorOf(li){
 
     const parentPt = point(parentAnchor, 'bottom');
     const childPt = point(childAnchor, 'top');
-    const midY = (parentPt.y + childPt.y) / 2 + GRAFT_LINK_Y_NUDGE;
+    const midY = (parentPt.y + childPt.y) / 2 + graftNudgeFor(p.parentId);
     const stroke = 'var(--married-in)';
     lines += `<line class="conn-line" style="stroke:${stroke}" x1="${parentPt.x}" y1="${parentPt.y}" x2="${parentPt.x}" y2="${midY}"/>`;
     lines += `<line class="conn-line" style="stroke:${stroke}" x1="${parentPt.x}" y1="${midY}" x2="${childPt.x}" y2="${midY}"/>`;
