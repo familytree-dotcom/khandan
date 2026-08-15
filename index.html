@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -261,7 +262,7 @@
 // Each person: id, nickname, realName, middleName, lastName, dob, dod, deceased(pm), photoKey, spouseId, parentId, husbandLeftOut
 const seedPeople = [
   {id:'p1', nickname:'Apa', realName:'', note:''},
-  {id:'p2', nickname:'Baredada', realName:'', deceased:true, spouseId:'p1', parentId:'p130'},
+  {id:'p2', nickname:'Baredada', realName:'', deceased:true, spouseId:'p1'},
 
   {id:'p3', nickname:'Muni', realName:'Nafees', parentId:'p1'},
   {id:'p4', nickname:'Maqbool', realName:'', deceased:true, spouseId:'p3'},
@@ -417,9 +418,6 @@ const seedPeople = [
   {id:'p112', nickname:'', realName:'Zeshuan', spouseId:'p111'},
   {id:'p113', nickname:'', realName:'Jannah', parentId:'p111'},
   {id:'p114', nickname:'', realName:'Nile', parentId:'p111'},
-
-  {id:'p130', nickname:'', realName:'', deceased:true, note:"Baredada's father"},
-  {id:'p131', nickname:'', realName:'', deceased:true, spouseId:'p130', note:"Baredada's mother"},
 ];
 
 // normalize fields
@@ -900,27 +898,6 @@ function positionGraftRoots(){
   const rootLis = document.querySelectorAll('.root-row > li.node');
   rootLis.forEach(li=>{ li.style.transform = ''; li.style.zIndex = ''; });
 
-  // A single, reusable measurement of exactly how tall one generation-step
-  // is — measured from Apa's own row down to Apa's own children-row, since
-  // Apa is guaranteed to have children rendered normally. A grafted in-law
-  // root (e.g. Baredada's father) often has NO children-row of its own —
-  // Baredada himself doesn't count as his child in the normal sense, since
-  // he's grafted elsewhere — so measuring locally from each anchor doesn't
-  // work at every depth. This shared constant lets every graft, at any
-  // depth (parents, grandparents, great-grandparents...), be placed exactly
-  // one generation above wherever its anchor currently sits.
-  let genRowStep = 0;
-  const apaWrap = document.querySelector(`.couple-wrap[data-anchor="p1"]`);
-  const apaLi = apaWrap ? apaWrap.closest('li.node') : null;
-  const apaChildrenRow = apaLi ? apaLi.querySelector(':scope > .children-row') : null;
-  if(apaLi && apaChildrenRow){
-    const apaRect = apaLi.getBoundingClientRect();
-    const apaChildrenRect = apaChildrenRow.getBoundingClientRect();
-    if(apaRect.height && apaChildrenRect.height){
-      genRowStep = apaChildrenRect.top - apaRect.top;
-    }
-  }
-
   const grafted = graftedParentIds();
   grafted.forEach(rootId=>{
     const rootWrap = document.querySelector(`.couple-wrap[data-anchor="${rootId}"]`);
@@ -1006,19 +983,6 @@ function positionGraftRoots(){
         if(refRect.height && graftRect.height){
           deltaY = refRect.top - graftRect.top;
         }
-    }else if(genRowStep){
-      // No blood-parent reference row exists for this anchor — either it's
-      // itself the top of its branch, or its own parent is another graft
-      // already positioned earlier in this same pass. Either way, place
-      // this graft exactly one universal generation-step above wherever
-      // the anchor visually sits RIGHT NOW (which already reflects any
-      // earlier transform from this same forEach) — no local children-row
-      // needed on the anchor itself.
-      const anchorRect = anchorLi.getBoundingClientRect();
-      const graftCoupleEl = rootWrap.querySelector('.couple') || rootWrap;
-      const graftRect = graftCoupleEl.getBoundingClientRect();
-      if(anchorRect.height && graftRect.height){
-        deltaY = (anchorRect.top - genRowStep) - graftRect.top;
       }
     }
 
@@ -1045,7 +1009,7 @@ function positionGraftRoots(){
         rootWrap.style.transform = `translateX(${targetCenterX - coupleCenterX}px)`;
       }
     }
-  };
+  });
 }
 
 async function attachPhotosToAvatars(){
