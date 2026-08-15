@@ -61,8 +61,8 @@
     font-size:11px; padding:4px 10px; border-radius:20px; background:var(--accent-soft);
     color:var(--accent); border:1px solid var(--accent);
   }
-  #tree-wrap{
-    padding:40px 20px 100px; overflow:auto;
+ #tree-wrap{
+    padding:100px 20px 100px; overflow:auto;
   }
   .zoom-controls{
     display:flex; align-items:center; gap:2px; border:1px solid var(--line);
@@ -911,8 +911,8 @@ function positionGraftRoots(){
   document.querySelectorAll('.graft-spacer').forEach(el=>el.remove());
   const rootLis = document.querySelectorAll('.root-row > li.node');
   rootLis.forEach(li=>{ li.style.transform = ''; li.style.zIndex = ''; });
-  const wrapEl = document.getElementById('tree-wrap');
-  if(wrapEl) wrapEl.style.paddingTop = '40px'; // reset before remeasuring below
+ const wrapEl = document.getElementById('tree-wrap');
+  if(wrapEl) wrapEl.style.paddingTop = '100px'; // reset before remeasuring below (100px = permanent top buffer)
 
   const grafted = graftedParentIds();
   grafted.forEach(rootId=>{
@@ -1059,7 +1059,7 @@ function positionGraftRoots(){
       if(minTop < 0){
         const wrapRect = wrapEl.getBoundingClientRect();
         const overflow = wrapRect.top - minTop;
-        wrapEl.style.paddingTop = (40 + overflow) + 'px';
+        wrapEl.style.paddingTop = (100 + overflow + 40) + 'px'; // +40 extra safety margin
       }
     });
   }
