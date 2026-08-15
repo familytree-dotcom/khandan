@@ -992,28 +992,55 @@ function positionGraftRoots(){
     // to line up with it. Falls back to no vertical shift (the old
     // always-top behavior) when the anchor has no recorded blood parent,
     // i.e. the anchor's own parent is itself already a tree root.
-    let deltaY = 0;
-    const anchorBloodParentId = anchorSpouse.parentId;
-    if(anchorBloodParentId){
-      const refWrap = document.querySelector(`.couple-wrap[data-anchor="${anchorBloodParentId}"] .couple`);
-      const graftCoupleEl = rootWrap.querySelector('.couple') || rootWrap;
-      if(refWrap && graftCoupleEl){
-        const refRect = refWrap.getBoundingClientRect();
-        const graftRect = graftCoupleEl.getBoundingClientRect();
-        if(refRect.height && graftRect.height){
-          deltaY = refRect.top - graftRect.top;
+   let deltaY = 0;
+    const graftChildrenRowForAlign = rootLi.querySelector(':scope > .children-row');
+    const targetRowCoupleEl = anchorSpouseWrap.querySelector('.couple') || anchorSpouseWrap;
+
+    // Preferred alignment: Baba's row (the graft's own children, one
+    // generation below p115/p116) must land at the SAME Y as Ashraf's row
+    // (anchorSpouseWrap = Choti Muna's box, which Ashraf shares). This is
+    // the actual constraint that matters — aligning p115/p116 itself to
+    // some ancestor row is only a proxy for this, and drifts whenever box
+    // heights differ between the two rows being compared. Measured before
+    // any transform is applied, so it's exact — translation preserves the
+    // relative distance between p115/p116 and Baba, so solving for where
+    // p115/p116 needs to end up is a direct calculation, not a guess.
+    if(graftChildrenRowForAlign && targetRowCoupleEl){
+      const firstChildCouple = graftChildrenRowForAlign.querySelector(':scope > li.node > .couple-wrap .couple');
+      const graftTopCoupleEl = rootWrap.querySelector('.couple-blue .couple') || rootWrap.querySelector('.couple') || rootWrap;
+      if(firstChildCouple){
+        const fcRect = firstChildCouple.getBoundingClientRect();
+        const targetRect = targetRowCoupleEl.getBoundingClientRect();
+        if(fcRect.height && targetRect.height){
+          deltaY = targetRect.top - fcRect.top;
         }
       }
-    }else{
-      // Anchor (e.g. Baredada) is themself the tree's topmost root — there's
-      // no existing row above to line up with, so shift the whole grafted
-      // subtree up by exactly one generation's height instead of leaving it
-      // pinned to the same row as the anchor.
-      const anchorCoupleEl = anchorSpouseWrap.querySelector('.couple') || anchorSpouseWrap;
-      const anchorCoupleRect = anchorCoupleEl.getBoundingClientRect();
-      const ROW_GAP = 32 * currentZoom; // matches the ul.tree / children-row padding-top
-      if(anchorCoupleRect.height){
-        deltaY = -(anchorCoupleRect.height + ROW_GAP);
+    }
+
+    // Fallback (no children under the graft to align against, e.g. a
+    // birth family entered with no siblings yet recorded) — use the old
+    // ancestor-row alignment as a best-effort default.
+    if(deltaY === 0){
+      const anchorBloodParentId = anchorSpouse.parentId;
+      if(anchorBloodParentId){
+        const refWrap = document.querySelector(`.couple-wrap[data-anchor="${anchorBloodParentId}"] .couple`);
+        const graftCoupleEl = rootWrap.querySelector('.couple-blue .couple') || rootWrap.querySelector('.couple') || rootWrap;
+        if(refWrap && graftCoupleEl){
+          const refRect = refWrap.getBoundingClientRect();
+          const graftRect = graftCoupleEl.getBoundingClientRect();
+          if(refRect.height && graftRect.height){
+            const refCenter = refRect.top + refRect.height/2;
+            const graftCenter = graftRect.top + graftRect.height/2;
+            deltaY = refCenter - graftCenter;
+          }
+        }
+      }else{
+        const anchorCoupleEl = anchorSpouseWrap.querySelector('.couple') || anchorSpouseWrap;
+        const anchorCoupleRect = anchorCoupleEl.getBoundingClientRect();
+        const ROW_GAP = 32 * currentZoom;
+        if(anchorCoupleRect.height){
+          deltaY = -(anchorCoupleRect.height + ROW_GAP);
+        }
       }
     }
 
